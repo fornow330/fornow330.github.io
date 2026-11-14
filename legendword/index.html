@@ -5,22 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#08080c">
 <title>传奇文字</title>
-<style>html,body{margin:0;padding:0;height:100%;background:#08080c;color:#8a877e;font:13px/1.6 -apple-system,sans-serif;overflow:hidden}#tip{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}</style>
+<style>html,body{margin:0;padding:0;height:100%;background:#08080c;overflow:hidden}#g{position:fixed;inset:0;width:100%;height:100%;border:0;display:block}</style>
 </head>
 <body>
-<div id="tip">正在加载传奇文字…</div>
-<script>
-(async function(){
-  try{
-    const parts=['game.0','game.1','game.2','game.3'];
-    const b64=(await Promise.all(parts.map(p=>fetch('./'+p).then(r=>r.text())))).join('').replace(/\s+/g,'');
-    const raw=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
-    const html=await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
-    document.open();document.write(html);document.close();
-  }catch(e){
-    document.getElementById('tip').innerHTML='加载失败：'+e+'<br><a href="https://vcn2hg0t34as.doubao.link/app/app_17j122qqdfb" style="color:#e0b34a">点此进入在线版</a>';
-  }
-})();
-</script>
+<iframe id="g" src="https://vcn2hg0t34as.doubao.link/app/app_17j122qqdfb" allow="clipboard-write; fullscreen" referrerpolicy="no-referrer"></iframe>
 </body>
 </html>
