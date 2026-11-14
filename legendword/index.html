@@ -5,9 +5,53 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#08080c">
 <title>传奇文字</title>
-<style>html,body{margin:0;padding:0;height:100%;background:#08080c;overflow:hidden}#g{position:fixed;inset:0;width:100%;height:100%;border:0;display:block}</style>
+<style>html,body{margin:0;padding:0;height:100%;background:#08080c;color:#8a877e;font:13px/1.7 -apple-system,sans-serif;overflow:hidden}#tip{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 24px}#tip a{color:#e0b34a;margin-top:10px }</style>
 </head>
 <body>
-<iframe id="g" src="https://vcn2hg0t34as.doubao.link/app/app_17j122qqdfb" allow="clipboard-write; fullscreen" referrerpolicy="no-referrer"></iframe>
+<div id="tip">正在加载传奇文字…</div>
+<script>
+var PARTS = ['c00','c01','c01b','c02','c03','c04','c05','c06','c07','c08','c09','c10','c11'];
+var CDN = 'https://vcn2hg0t34as.doubao.link/app/app_17j122qqdfb';
+function showTip(msg, url){
+  var t = document.getElementById('tip');
+  if(!t) return;
+  t.innerHTML = msg + (url ? ('<a href="' + url + '">点此进入在线版</a>') : '');
+}
+function fallbackCdn(reason){
+  showTip('本地加载失败（' + reason + '），已切换云端', CDN);
+  var f = document.createElement('iframe');
+  f.src = CDN;
+  f.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0';
+  f.allow = 'clipboard-write; fullscreen';
+  document.body.appendChild(f);
+}
+function decode(b64){
+  var bin = atob(b64);
+  var arr = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr;
+}
+(async function(){
+  try{
+    if (typeof DecompressionStream !== 'function') { fallbackCdn('浏览器不支持解压'); return; }
+    var texts = await Promise.all(PARTS.map(function(p){
+      return fetch('./' + p, {cache: 'no-cache'}).then(function(r){
+        if (!r.ok) throw new Error(p + ' HTTP ' + r.status);
+        return r.text();
+      });
+    }));
+    var b64 = texts.join('').replace(/[^A-Za-z0-9+/=]/g, '');
+    var gz = decode(b64);
+    var stream = new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'));
+    var html = await new Response(stream).text();
+    if (!html || html.length < 10000) throw new Error('内容不完整');
+    document.open();
+    document.write(html);
+    document.close();
+  }catch(e){
+    fallbackCdn(String(e && e.message ? e.message : e));
+  }
+})();
+</script>
 </body>
 </html>
