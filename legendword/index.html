@@ -5,16 +5,21 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#08080c">
 <title>传奇文字</title>
-<style>html,body{margin:0;padding:0;height:100%;background:#08080c;color:#8a877e;font:13px/1.7 -apple-system,sans-serif;overflow:hidden}#tip{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 24px}#tip a{color:#e0b34a;margin-top:10px}</style>
+<style>html,body{margin:0;padding:0;height:100%;background:#08080c;color:#9a968c;font:13px/1.7 -apple-system,sans-serif;overflow:hidden}#tip{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 24px}#tip a{color:#e0b34a;margin-top:10px}</style>
 </head>
 <body>
 <div id="tip">正在加载传奇文字…</div>
 <script>
 var PARTS = ['c00','c01','c01b','c02','c03','c04','c05','c06','c07','c08','c09','c10','c11'];
 var BUILD = '0924403b122f6cd481e39c8c38284e54584d77fe';
-var CDN_BASE = 'https://cdn.jsdelivr.net/gh/fornow330/fornow330.github.io@' + BUILD + '/legendword/';
-var ORIGIN_BASE = './';
-var FALLBACK_URL = 'https://vcn2hg0t34as.doubao.link/app/app_17j122qqdfb';
+var RAW = 'https://raw.githubusercontent.com/fornow330/fornow330.github.io/' + BUILD + '/legendword/';
+var BASES = [
+  'https://fastly.jsdelivr.net/gh/fornow330/fornow330.github.io@' + BUILD + '/legendword/',
+  'https://ghproxy.net/' + RAW,
+  'https://gh-proxy.com/' + RAW,
+  './'
+];
+var CDN_PAGE = 'https://vcn2hg0t34as.doubao.link/app/app_17j122qqdfb';
 
 function showTip(msg, url){
   var t = document.getElementById('tip');
@@ -22,10 +27,9 @@ function showTip(msg, url){
   t.innerHTML = msg + (url ? ('<a href="' + url + '">点此进入在线版</a>') : '');
 }
 
-function fallbackEmbed(reason){
-  showTip('加载失败：' + reason, FALLBACK_URL);
+function embed(url){
   var f = document.createElement('iframe');
-  f.src = FALLBACK_URL;
+  f.src = url;
   f.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0';
   f.allow = 'clipboard-write; fullscreen';
   document.body.appendChild(f);
@@ -47,9 +51,7 @@ function decode(b64){
 
 async function loadFrom(base){
   var texts = [];
-  for (var i = 0; i < PARTS.length; i++) {
-    texts.push(await fetchPart(base, PARTS[i]));
-  }
+  for (var i = 0; i < PARTS.length; i++) texts.push(await fetchPart(base, PARTS[i]));
   var b64 = texts.join('').replace(/[^A-Za-z0-9+/=]/g, '');
   var gz = decode(b64);
   var stream = new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'));
@@ -59,12 +61,11 @@ async function loadFrom(base){
 }
 
 (async function(){
-  if (typeof DecompressionStream !== 'function') { fallbackEmbed('浏览器不支持解压'); return; }
-  var bases = [CDN_BASE, ORIGIN_BASE];
+  if (typeof DecompressionStream !== 'function') { embed(CDN_PAGE); return; }
   var lastErr = '';
-  for (var i = 0; i < bases.length; i++) {
+  for (var i = 0; i < BASES.length; i++) {
     try{
-      var html = await loadFrom(bases[i]);
+      var html = await loadFrom(BASES[i]);
       document.open();
       document.write(html);
       document.close();
@@ -73,7 +74,7 @@ async function loadFrom(base){
       lastErr = String(e && e.message ? e.message : e);
     }
   }
-  fallbackEmbed(lastErr);
+  showTip('加载失败：' + lastErr + '，已切换云端', CDN_PAGE);
 })();
 </script>
 </body>
