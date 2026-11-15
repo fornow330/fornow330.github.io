@@ -24,15 +24,22 @@ jobs:
 
       - name: 合入 GPL-3.0 官方许可证全文
         run: |
-          curl -sfL https://www.gnu.org/licenses/gpl-3.0.txt -o /tmp/gpl.txt
-          head -3 /tmp/gpl.txt
-          if ! head -1 /tmp/gpl.txt | grep -q 'GNU GENERAL PUBLIC LICENSE'; then echo '许可证下载异常'; exit 1; fi
+          set -x
+          ok=0
+          for u in \
+            https://raw.githubusercontent.com/spdx/license-list-data/v3.20/text/GPL-3.0.txt \
+            https://raw.githubusercontent.com/spdx/license-list-data/main/text/GPL-3.0.txt \
+            https://www.gnu.org/licenses/gpl-3.0.txt ; do
+            if curl -sfL --max-time 30 "$u" -o /tmp/gpl.txt && head -1 /tmp/gpl.txt | grep -q 'GNU GENERAL PUBLIC LICENSE'; then ok=1; break; fi
+          done
+          if [ "$ok" != "1" ]; then echo 'license fetch failed'; exit 1; fi
           { printf '传奇文字 (Legend Word)\nCopyright (C) 2026 fornow330\n\n'; cat /tmp/gpl.txt; } > LICENSE
           wc -c LICENSE
+          head -3 LICENSE
 
       - name: 提交
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add legendword/game.html LICENSE
-          if git diff --staged --quiet; then echo "无变化"; else git commit -m "chore: assemble source and sync GPL-3.0 license"; git push; fi
+          if git diff --staged --quiet; then echo "无变化"; else git commit -m "chore: sync GPL-3.0 license and assembled source"; git push; fi
