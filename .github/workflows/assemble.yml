@@ -24,18 +24,16 @@ jobs:
 
       - name: 合入 GPL-3.0 官方许可证全文
         run: |
-          set -x
           ok=0
-          for u in \
-            https://raw.githubusercontent.com/spdx/license-list-data/v3.20/text/GPL-3.0.txt \
-            https://raw.githubusercontent.com/spdx/license-list-data/main/text/GPL-3.0.txt \
-            https://www.gnu.org/licenses/gpl-3.0.txt ; do
+          for u in https://raw.githubusercontent.com/spdx/license-list-data/v3.20/text/GPL-3.0.txt https://raw.githubusercontent.com/spdx/license-list-data/main/text/GPL-3.0.txt https://www.gnu.org/licenses/gpl-3.0.txt
+          do
             if curl -sfL --max-time 30 "$u" -o /tmp/gpl.txt && head -1 /tmp/gpl.txt | grep -q 'GNU GENERAL PUBLIC LICENSE'; then ok=1; break; fi
           done
           if [ "$ok" != "1" ]; then echo 'license fetch failed'; exit 1; fi
-          { printf '传奇文字 (Legend Word)\nCopyright (C) 2026 fornow330\n\n'; cat /tmp/gpl.txt; } > LICENSE
+          printf '传奇文字 (Legend Word)\nCopyright (C) 2026 fornow330\n\n' > LICENSE
+          cat /tmp/gpl.txt >> LICENSE
           wc -c LICENSE
-          head -3 LICENSE
+          head -4 LICENSE
 
       - name: 提交
         run: |
