@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '.github/workflows/assemble.yml'
+      - 'legendword/SRC_URL.txt'
   workflow_dispatch:
 
 permissions:
@@ -15,11 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 拉取最新本体
+      - name: 拉取最新本体（地址来自 legendword/SRC_URL.txt）
         run: |
-          curl -sfL --max-time 60 "https://aka.doubaocdn.com/s/e3BS3CN1Pn" -o legendword/game.html
+          SRC=$(head -1 legendword/SRC_URL.txt | tr -d '\r\n ')
+          echo "SRC=$SRC"
+          curl -sfL --max-time 90 "$SRC" -o legendword/game.html
           wc -c legendword/game.html
           md5sum legendword/game.html
+          grep -q '</html>' legendword/game.html
 
       - name: 合入 GPL-3.0 官方许可证全文
         run: |
@@ -31,7 +35,6 @@ jobs:
           if [ "$ok" != "1" ]; then echo 'license fetch failed'; exit 1; fi
           printf '传奇文字 (Legend Word)\nCopyright (C) 2026 fornow330\n\n' > LICENSE
           cat /tmp/gpl.txt >> LICENSE
-          wc -c LICENSE
 
       - name: 提交
         run: |
