@@ -18,18 +18,7 @@ jobs:
 
       - name: Assemble index.html
         run: |
-          cat > /tmp/assemble.py <<'PY'
-          import base64, glob, gzip, hashlib, pathlib
-          parts = sorted(glob.glob('vitrine/.build/part-*.b64'))
-          b = ''.join(pathlib.Path(p).read_text(encoding='ascii') for p in parts)
-          raw = gzip.decompress(base64.b64decode(b.replace('\n', '').replace('\r', '')))
-          p = pathlib.Path('vitrine/index.html')
-          p.write_bytes(raw)
-          print('parts', len(parts), 'bytes', len(raw))
-          print('sha256', hashlib.sha256(raw).hexdigest())
-          PY
-          mkdir -p vitrine/.build
-          python3 /tmp/assemble.py > vitrine/.build/build.log 2>&1 || true
+          python3 vitrine/.build/assemble.py > vitrine/.build/build.log 2>&1 || true
           cat vitrine/.build/build.log
           test -s vitrine/index.html
 
@@ -38,7 +27,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add vitrine/.build/build.log vitrine/index.html 2>/dev/null || true
+          git add -f vitrine/.build/build.log
+          if [ -f vitrine/index.html ]; then git add -f vitrine/index.html; fi
           if git diff --cached --quiet; then
             echo "nothing to commit"
           else
