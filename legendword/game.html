@@ -750,15 +750,33 @@ function affWeight(a){
  return 0;
 }
 // 专属灵器专用：重铸/升品时只升不降
-function mergeNoDowngrade(oldAffs,newAffs){
- const out=newAffs.map(a=>({k:a.k,n:a.n,v:a.v}));
- (oldAffs||[]).forEach(o=>{
-  const i=out.findIndex(x=>x.k===o.k);
-  if(i>=0){out[i].v=Math.max(out[i].v,o.v);return;}
-  let wi=0;for(let j=1;j<out.length;j++)if(affWeight(out[j])<affWeight(out[wi]))wi=j;
-  out[wi]={k:o.k,n:o.n,v:o.v};
+// 规则：每个旧词条都保留（同类型取新旧较大值），空槽优先补新词条；
+// 槽满时只有权重更高的新词条才能顶替最弱的非锁定项，因此总分与锁定位置都不会下降。
+function mergeNoDowngrade(oldAffs,newAffs,count){
+ const allOld=(oldAffs||[]).map(a=>({k:a.k,n:a.n,v:a.v,lock:!!a.lock}));
+ const total=count||Math.max(allOld.length,(newAffs||[]).length);
+ const lockedIdx=[],locked=[],open=[];
+ allOld.forEach((a,i)=>{if(a.lock){lockedIdx.push(i);locked.push(a);}else open.push(a);});
+ const pool=(newAffs||[]).map(a=>({k:a.k,n:a.n,v:a.v,lock:false}));
+ pool.sort((a,b)=>affWeight(b)-affWeight(a));
+ const res=open.slice();
+ // 同类型词条取较大值
+ res.forEach(o=>{
+  for(let i=0;i<pool.length;i++){
+   const c=pool[i];
+   if(c.k===o.k){if(c.v>o.v){o.v=c.v;o.n=c.n||o.n;}pool.splice(i,1);break;}
+  }
  });
- out.sort((a,b)=>affWeight(b)-affWeight(a));
+ const need=Math.max(res.length,open.length,Math.max(0,total-locked.length));
+ while(res.length<need&&pool.length)res.push(pool.shift());
+ // 没有空槽时，多出的新词条不再并入：旧词条的条数一律保留，绝不掉属性
+ res.sort((a,b)=>affWeight(b)-affWeight(a));
+ const out=new Array(locked.length+res.length);
+ let li=0,ri=0;
+ for(let i=0;i<out.length;i++){
+  if(li<lockedIdx.length&&lockedIdx[li]===i){out[i]=locked[li];li++;}else out[i]=res[ri++];
+ }
+ while(li<lockedIdx.length)out.push(locked[li++]);
  return out;
 }
 function artResonance(){
@@ -817,19 +835,7 @@ function rerollArt(slot){
  const lkIdx=artLockIdx({affs:old});
  const cand=artRollAffs(it.q,it.sub,it.lv,it.grow,it.kind);
  let out=it.grow?mergeNoDowngrade(old,cand):cand.slice();
- if(it.grow){
-  const ents=out.slice();
-  lkIdx.forEach(i=>{
-   const L=old[i];if(!L)return;
-   let j=-1;
-   for(let t=0;t<ents.length;t++){if(ents[t]&&!ents[t].lock&&ents[t].k===L.k){j=t;break;}}
-   if(j<0&&i<ents.length&&ents[i]&&!ents[i].lock)j=i;
-   if(j<0){ents.push({k:L.k,n:L.n,v:L.v,lock:true});j=ents.length-1;}
-   const e=ents[j];e.v=Math.max(e.v,L.v);if(!e.n)e.n=L.n;e.lock=true;
-   if(i<ents.length&&i!==j){const tmp=ents[i];ents[i]=e;ents[j]=tmp;}
-  });
-  out=ents;
- }else{
+ if(!it.grow){
   lkIdx.forEach(i=>{
    const L=old[i];if(!L)return;
    const keep={k:L.k,n:L.n,v:L.v,lock:true};
@@ -842,7 +848,6 @@ function rerollArt(slot){
   let wi=-1;for(let i=0;i<out.length;i++){if(out[i].lock)continue;if(wi<0||affWeight(out[wi])<affWeight(out[i]))wi=i;}
   if(wi<0)break;out.splice(wi,1);
  }
- if(it.grow)out.sort((a,b)=>affWeight(b)-affWeight(a));
  it.affs=out;
  it.lk=artLockIdx(it);
  notice("重铸完成："+it.affs.length+" 条词条已刷新"+(lkIdx.length?"（锁定 "+lkIdx.length+" 条保持原值）":"")+(it.grow?"（专属灵器只升不降）":"")+"。","good");
@@ -2281,3 +2286,4 @@ boot();
 </script>
 </body>
 </html>
+
