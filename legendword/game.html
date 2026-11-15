@@ -779,6 +779,45 @@ function mergeNoDowngrade(oldAffs,newAffs,count){
  while(li<lockedIdx.length)out.push(locked[li++]);
  return out;
 }
+// 专属灵器重铸：词条类型/条数重新随机，锁定项原位原值继承；
+// 新词条的数值整体按比例上调（每次至少 +2%），因此只会变强不会变弱。
+function rerollGrowAffs(oldAffs,cand){
+ const old=(oldAffs||[]).map(a=>({k:a.k,n:a.n,v:a.v,lock:!!a.lock}));
+ const lkIdx=[],locked=[],oldOpen=[];
+ old.forEach((a,i)=>{if(a.lock){lkIdx.push(i);locked.push(a);}else oldOpen.push(a);});
+ const DEC={atkp:1,amp:1,red:1,hpp:1,defp:1,cap:1};
+ const fix1=v=>Math.round(v*100)/100;
+ const sumW=arr=>arr.reduce((s,a)=>s+affWeight(a),0);
+ const pool=(cand||[]).map(a=>({k:a.k,n:a.n,v:a.v,lock:false}));
+ const oldSum=sumW(oldOpen);
+ // 同类型词条数值不低于旧值
+ pool.forEach(c=>{for(const o of oldOpen){if(o.k===c.k&&o.v>c.v){c.v=o.v;break;}}});
+ // 随机词条的数值按比例整体上调，保证总分不低于旧的 1.02 倍
+ if(oldSum>0&&pool.length){
+  const cur=sumW(pool);
+  if(cur<oldSum*1.02&&cur>0){
+   const mul=oldSum*1.02/cur;
+   pool.forEach(a=>{a.v=DEC[a.k]?fix1(a.v*mul):Math.round(a.v*mul);});
+  }
+  let gap=oldSum*1.02-sumW(pool);
+  if(gap>0){
+   pool.sort((a,b)=>affWeight(b)-affWeight(a));
+   const t=pool[0],unit=affWeight({k:t.k,v:1});
+   if(unit>0)t.v=DEC[t.k]?fix1(t.v+gap/unit):Math.round(t.v+gap/unit);
+  }
+ }
+ // 锁定项回填到原位置，其余按顺序排入
+ const res=pool.slice(),out=[];
+ let li=0,ri=0;
+ const total=res.length+locked.length;
+ for(let i=0;i<total;i++){
+  if(li<locked.length&&lkIdx[li]===i){out.push(locked[li]);li++;}
+  else if(ri<res.length){out.push(res[ri++]);}
+ }
+ while(ri<res.length)out.push(res[ri++]);
+ while(li<locked.length)out.push(locked[li++]);
+ return out;
+}
 function artResonance(){
  const arts=ART_KINDS.map(k=>(S.art||{})[k]).filter(Boolean);
  const n=arts.length;if(n<4)return {n,amp:0,minQ:-1};
@@ -833,8 +872,9 @@ function rerollArt(slot){
  S.spirit-=c;
  const old=(it.affs||[]).map(a=>({k:a.k,n:a.n,v:a.v,lock:!!a.lock}));
  const lkIdx=artLockIdx({affs:old});
+ const cap=Math.min(12,it.grow?3+Math.floor(Math.max(0,it.lv-200)/88):artCount(it.q,it.sub));
  const cand=artRollAffs(it.q,it.sub,it.lv,it.grow,it.kind);
- let out=it.grow?mergeNoDowngrade(old,cand):cand.slice();
+ let out=it.grow?rerollGrowAffs(old,cand.slice(0,Math.max(1,cap-lkIdx.length))):cand.slice();
  if(!it.grow){
   lkIdx.forEach(i=>{
    const L=old[i];if(!L)return;
@@ -843,14 +883,13 @@ function rerollArt(slot){
   });
  }
  out.forEach(a=>{if(!a.n){const d=ART_AFF.find(x=>x.k===a.k);a.n=d?d.n:a.k;}});
- const cap=Math.min(12,it.grow?3+Math.floor(Math.max(0,it.lv-200)/88):artCount(it.q,it.sub));
  while(out.length>cap){
   let wi=-1;for(let i=0;i<out.length;i++){if(out[i].lock)continue;if(wi<0||affWeight(out[wi])<affWeight(out[i]))wi=i;}
   if(wi<0)break;out.splice(wi,1);
  }
  it.affs=out;
  it.lk=artLockIdx(it);
- notice("重铸完成："+it.affs.length+" 条词条已刷新"+(lkIdx.length?"（锁定 "+lkIdx.length+" 条保持原值）":"")+(it.grow?"（专属灵器只升不降）":"")+"。","good");
+ notice("重铸完成："+it.affs.length+" 条词条已重新随机"+(lkIdx.length?"（锁定 "+lkIdx.length+" 条保持原值）":"")+(it.grow?"（专属灵器数值比例上调，只升不降）":"")+"。","good");
  render();save();
 }
 function rollArtQ(mlv){
@@ -870,33 +909,39 @@ function growTier(lv){
  }
  return {q:3,sub:2};
 }
+function growArtSlots(){const o=[];ART_KINDS.forEach(k=>{const it=(S.art||{})[k];if(it&&it.grow)o.push(it);});return o;}
 function syncGrowArt(){
- const it=S.artGrow;if(!it)return;
- const t=growTier(S.lv);
- const cnt=Math.min(12,3+Math.floor(Math.max(0,S.lv-200)/88));
- if(t.q!==it.q||t.sub!==it.sub||it.affs.length!==cnt){
-  const cand2=artRollAffs(t.q,t.sub,S.lv,true,it.kind);
-  it.q=t.q;it.sub=t.sub;it.lv=S.lv;
-  it.affs=mergeNoDowngrade(it.affs,cand2);
-  S.art=S.art||artBlank();S.art[it.kind]=it;
-  log("◆ 专属灵器成长："+artTitle(it)+"（"+it.affs.length+" 条词条）","boss");
- }
+ const gs=growArtSlots();
+ gs.forEach(it=>{
+  const t=growTier(S.lv);
+  const cnt=Math.min(12,3+Math.floor(Math.max(0,S.lv-200)/88));
+  if(t.q!==it.q||t.sub!==it.sub||it.affs.length!==cnt){
+   const cand2=artRollAffs(t.q,t.sub,S.lv,true,it.kind);
+   it.q=t.q;it.sub=t.sub;it.lv=S.lv;
+   it.affs=mergeNoDowngrade(it.affs,cand2);
+   log("◆ 专属灵器成长："+artTitle(it)+"（"+it.affs.length+" 条词条）","boss");
+  }
+ });
+ if(gs.length)S.artGrow=gs[0];else S.artGrow=null;
 }
 function grantGrowArt(){
- if(S.artGrow){
-  const g=S.artGrow,g2=growTier(S.lv);
-  g.q=g2.q;g.sub=g2.sub;g.lv=S.lv;
-  g.affs=mergeNoDowngrade(g.affs,artRollAffs(g.q,g.sub,S.lv,true,g.kind));
-  S.art=S.art||artBlank();S.art[g.kind]=g;
-  log("◆ 专属灵器再获机缘，"+artTitle(g)+" 的 "+g.affs.length+" 条词条全部重塑。","boss");
-  notice("专属灵器词条已重塑，可继续历练刷词条。","gold");
-  return;
- }
  const t=growTier(S.lv);
- const it=makeArt(ART_KINDS[Math.floor(Math.random()*ART_KINDS.length)],Math.max(200,S.lv),t.q,t.sub,true);
- S.artGrow=it;S.art=S.art||artBlank();S.art[it.kind]=it;
- log("★★ 历练秘境深处，一柄随你成长的专属灵器认你为主："+artTitle(it)+"（"+it.affs.length+" 条词条）","boss");
- notice("★ 获得专属灵器！随等级提升品质与词条，999 级为神上品 12 词条。","gold");
+ S.art=S.art||artBlank();
+ const free=ART_KINDS.filter(k=>{const it=S.art[k];return !(it&&it.grow);});
+ if(!free.length){
+  const sp=Math.round(((24*(t.q+1)*(t.q+1)+(t.sub+1)*12)*3)*8);
+  S.spirit=(S.spirit||0)+sp;
+  log("★★ 六件专属灵器已然齐聚，此番机缘化作灵晶 +"+nf(sp)+"。","drop");
+  notice("专属灵器已全部集齐（6/6），重复机缘转化为灵晶 +"+nf(sp)+"。","gold");
+  render();save();return;
+ }
+ const kind=free[Math.floor(Math.random()*free.length)];
+ const it=makeArt(kind,Math.max(200,S.lv),t.q,t.sub,true);
+ S.art[kind]=it;
+ const gs=growArtSlots();S.artGrow=gs[0];
+ log("★★ 历练秘境深处，一尊专属灵器认你为主："+artTitle(it)+"（"+it.affs.length+" 条词条，已集 "+gs.length+"/6）","boss");
+ notice("★ 获得专属灵器（"+gs.length+"/6）：随等级提升品质与词条，999 级为神上品 12 词条。","gold");
+ render();save();
 }
 function worldUpCost(kind){
  const d=S.dp||{};const n=(kind==="hpm"?d.hpm:(d[kind]||0))||0;
@@ -1791,7 +1836,7 @@ function renderWorldGrow(){
   '<div class="row"><span>甲</span><span style="color:#8a877e">'+(a1?artTitle(a1):"空")+'</span></div>'+
   '<div class="sub">六个部位：武器、甲、头巾、项链、腰带、鞋子，各自侧重不同属性（武器偏攻击、甲偏防御生命、头巾偏生命、项链偏攻击加成与暴击、腰带偏减伤、鞋子偏暴击加成）。普通怪不掉灵器，精英怪（击杀任意怪 1/10 出现）1/8 掉，BOSS 必掉。</div>'+
  '<div class="sub">品质凡/灵/仙/神各分下中上品，词条 3-12 条全随机；重铸用灵晶，可点词条锁定，锁定越多价格越高（每条 +35%）。佩戴满 4 件起有共鸣加成，按最低品质给伤害加成。</div>'+
-  '<div class="sub">'+(S.artGrow?"专属灵器：已持有（"+artTitle(S.artGrow)+"，"+S.artGrow.affs.length+" 词条），随等级自动升品升词条。":"专属灵器：尚未获得，历练副本有极低概率觉醒。")+'</div>';
+  '<div class="sub">'+(function(){const gs=growArtSlots();if(!gs.length)return "专属灵器：尚未获得（0/6），历练副本有极低概率觉醒。";return "专属灵器：已集 "+gs.length+"/6，优先觉醒未拥有的部位；集齐后重复机缘转为灵晶。";})()+'</div>';
  const acts1=document.createElement("div");acts1.className="acts";
  const b1=document.createElement("div");b1.className="mini b";b1.textContent="重铸灵器";
  b1.onclick=()=>{goPanel("2");toast("已跳到角色页，点各部位右下角的「重铸」即可洗词条","good");};
