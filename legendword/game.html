@@ -198,7 +198,7 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
 /* ============ 可调数值 ============ */
 let CONFIG={
  expRate:1.15,dropRate:0.95,monsterHpRate:1.0,monsterAtkRate:1.25,
- goldRate:1.0,crystalRate:1.0,bossInWild:0.03,pointRate:1,
+ goldRate:1.0,crystalRate:1.0,spiritRate:1.0,bossInWild:0.03,pointRate:1,
  autoFight:true,autoPotion:true,autoEquip:true,autoRecycle:true,autoCast:true,autoAdvance:true,autoMerge:false,
  tickMs:700,saveSec:5,maxLog:80
 };
@@ -209,6 +209,7 @@ const CFG_DEF=[
  {k:"monsterAtkRate",n:"怪物攻击",tip:"越小你越抗揍",min:.05,max:20,step:.05},
  {k:"goldRate",n:"金币倍率",tip:"影响掉钱",min:.1,max:200,step:.1},
  {k:"crystalRate",n:"水晶爆率",tip:"普通怪掉水晶概率",min:0,max:20,step:.01},
+ {k:"spiritRate",n:"灵晶爆率",tip:"大世界打怪/历练的灵晶倍率",min:0,max:200,step:.1},
  {k:"bossInWild",n:"野怪出BOSS率",tip:"0=只靠按钮",min:0,max:1,step:.01},
  {k:"pointRate",n:"泡点速度",tip:"每分钟泡点",min:.2,max:60,step:.2},
  {k:"tickMs",n:"回合间隔(毫秒)",tip:"300≈三倍速",min:150,max:3000,step:10},
@@ -919,15 +920,17 @@ function spawnHeaven(){
  if(S.deadEnd&&Date.now()<S.deadEnd){notice("肉身未稳，还需 "+Math.max(1,Math.ceil((S.deadEnd-Date.now())/1000))+" 秒才能再战天道。","warn");return;}
  if(cur&&cur.heaven&&cur.hp>0){notice("天道仍在头顶，先打完再说。","warn");return;}
  const st=stats();
- const hp=Math.round(Math.max(1e13,st.hp*3000,st.atkMax*8e6));
- const atk=Math.round(Math.max(st.hp*6,st.atkMax*20));
+ // 天道仍是天花板，但留一线生机：血量约等于你 160 次满配输出的总和，一击约你半条命
+ const per=st.atkMax*(1+st.amp/100)+st.fix+st.ele;
+ const hp=Math.round(Math.max(1e7,per*220));
+ const atk=Math.round(st.hp*0.40);
  cur={name:"天道",lv:1200,boss:true,heaven:true,ele:0,hp:hp,maxhp:hp,atkMin:atk,atkMax:atk,
-  def:Math.round(st.atkMax*40),exp:0,gold:0,poison:0,poisonDps:0};
+  def:Math.round(st.atkMax*0.7),exp:0,gold:0,poison:0,poisonDps:0};
  S.mode="boss";S.skyTries=(S.skyTries||0)+1;
  S.hp=st.hp;S.mp=maxMp();S.deadEnd=0;
  try{const lg=$("#log");if(lg)lg.innerHTML="";}catch(e){}
  goPanel("0");
- log("【破碎虚空】天幕裂开，天道本体降临：生命 "+nf(hp)+"，一击 "+nf(atk)+"。","boss");
+ log("【破碎虚空】天幕裂开，天道本体降临：生命 "+nf(hp)+"，一击 "+nf(atk)+"（约你半条命）。","boss");
  notice("天道降临，这一战没有退路。","warn");
  renderMon();render();save();
 }
@@ -986,6 +989,7 @@ function monsterAttack(){
  if(!cur||cur.hp<=0)return;
  const st=stats();
  let dmg=rnd(cur.atkMin,cur.atkMax)-rnd(st.defMin,st.defMax)*0.6;
+ if(cur.heaven){cur.turns=(cur.turns||0)+1;dmg*=1+Math.min(0.65,cur.turns/260);}
  dmg*=1-st.red/100;
  dmg*=1-Math.min(60,st.res)*0.4/100;
  if(Date.now()<S.shieldEnd)dmg*=1-shieldReduce();
@@ -1024,7 +1028,9 @@ function trySkills(){
 function winMonster(){
  if(cur&&cur.heaven){
   S.skyWin=true;S.mode="normal";cur=null;S.hp=stats().hp;S.mp=maxMp();
-  log("天道在你刀下崩成光尘，虚空终于裂开一线——破碎虚空，达成。","gold");
+  const rw=Math.round(20000*CONFIG.spiritRate);
+  S.spirit=(S.spirit||0)+rw;
+  log("天道在你刀下崩成光尘，虚空终于裂开一线——破碎虚空，达成。灵晶 +"+nf(rw)+"。","gold");
   notice("★ 破碎虚空成功！请联系 GM 领取凭证，Q群 728403008。","gold");
   save();render();spawn();return;
  }
@@ -1039,7 +1045,7 @@ function winMonster(){
  rateAcc.g+=cur.gold;rateAcc.e+=gain;rateAcc.ms+=CONFIG.tickMs;
  dailyAdd("kills",1);dailyAdd("gold",cur.gold);
  if(S.realm===2){
-  const sp=(3+Math.floor(Math.max(0,cur.lv-200)/25))*(cur.elite?2:1);
+  const sp=Math.max(0,Math.round((3+Math.floor(Math.max(0,cur.lv-200)/25))*(cur.elite?2:1)*CONFIG.spiritRate));
   S.spirit+=sp;
   if(boss){
   equipArt(dropArt(cur.lv));
@@ -1089,7 +1095,7 @@ function die(){
  if(wasHeaven){
   log("天道一击，你连残影都没留下。肉身需 30 秒才能重组。","warn");
   S.hp=0;S.mp=0;S.mode="normal";cur=null;S.deadEnd=Date.now()+30000;
-  notice("破碎虚空失败，30 秒后复活。天道难度 MAX，本就没打算让人赢。","warn");
+  notice("破碎虚空失败，30 秒后复活。天道仍非绝境——把灵器与道行再往上堆，它就会倒。","warn");
   render();save();return;
  }
  log("你倒下了…… 在安全区醒来，损失金币 "+nf(lose)+"。","warn");
@@ -1409,7 +1415,7 @@ function doTrial(){
  if(Date.now()<(S.trialReady||0)){notice("历练冷却中，还要 "+Math.ceil((S.trialReady-Date.now())/1000)+" 秒。","warn");return;}
  S.trialReady=Date.now()+120000;
  if(S.realm===2){
-  const sp=40+Math.floor((S.lv-200)*1.2);
+  const sp=Math.max(0,Math.round((40+Math.floor((S.lv-200)*1.2))*CONFIG.spiritRate));
   S.spirit+=sp;
   if(Math.random()<0.06){grantGrowArt();render();save();return;}
   notice("大世界历练完成：灵晶 +"+nf(sp)+"。（秘境深处偶有专属灵器）","gold");
