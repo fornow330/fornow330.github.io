@@ -1,0 +1,11 @@
+parts: ['vitrine/.build/part-1.b64', 'vitrine/.build/part-2.b64', 'vitrine/.build/part-3.b64']
+part vitrine/.build/part-1.b64 14399 chars
+part vitrine/.build/part-2.b64 14399 chars
+part vitrine/.build/part-3.b64 14359 chars
+total b64 chars 42596
+Traceback (most recent call last):
+  File "/home/runner/work/fornow330.github.io/fornow330.github.io/vitrine/.build/assemble.py", line 17, in <module>
+    raw = gzip.decompress(base64.b64decode(b))
+  File "/usr/lib/python3.14/gzip.py", line 659, in decompress
+    raise BadGzipFile("CRC check failed")
+gzip.BadGzipFile: CRC check failed
