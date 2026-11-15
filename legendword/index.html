@@ -10,7 +10,7 @@
 <body>
 <div id="tip">正在加载传奇文字…</div>
 <script>
-var BUILD = '767314c9b5fc06516890e3ceac0bc6b57fa843a5';
+var BUILD = 'aef85b94aea42e71e1a3b6bebadc7cdaeaed2059';
 var FILE = 'game.html';
 var RAW = 'https://raw.githubusercontent.com/fornow330/fornow330.github.io/' + BUILD + '/legendword/';
 var BASES = [
@@ -20,17 +20,12 @@ var BASES = [
   './'
 ];
 var PAGE = 'https://fornow330.github.io/legendword/';
-
 function showTip(msg, url){
   var t = document.getElementById('tip');
   if(!t) return;
   t.innerHTML = msg + (url ? ('<a href="' + url + '">点此进入在线版</a>') : '');
 }
-function write(html){
-  document.open();
-  document.write(html);
-  document.close();
-}
+function write(html){ document.open(); document.write(html); document.close(); }
 async function loadFrom(base){
   var r = await fetch(base + FILE + '?v=' + BUILD.slice(0,8), {cache: 'force-cache'});
   if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -41,12 +36,8 @@ async function loadFrom(base){
 (async function(){
   var lastErr = '';
   for (var i = 0; i < BASES.length; i++) {
-    try{
-      write(await loadFrom(BASES[i]));
-      return;
-    }catch(e){
-      lastErr = String(e && e.message ? e.message : e);
-    }
+    try{ write(await loadFrom(BASES[i])); return; }
+    catch(e){ lastErr = String(e && e.message ? e.message : e); }
   }
   showTip('加载失败：' + lastErr + '，请检查网络', PAGE);
 })();
