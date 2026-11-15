@@ -1,0 +1,34 @@
+name: vitrine-restore
+
+on:
+  push:
+    paths:
+      - '.github/workflows/vitrine-restore.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore full index.html from a known-good commit
+        run: |
+          set -euo pipefail
+          curl -fsSL -o vitrine/index.html \
+            https://raw.githubusercontent.com/fornow330/fornow330.github.io/a697175f0bd8f7abb51a001bcf769b7fbf494d29/vitrine/index.html
+          echo "d8dd6cd1f52dcaa4b7528ee54c62b71e4c88329be414b330170425dba8d2d438  vitrine/index.html" | sha256sum -c
+
+      - name: Commit restored file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f vitrine/index.html
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "vitrine: restore full index.html"
+            git push origin HEAD:main
+          fi
