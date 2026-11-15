@@ -1,7 +1,4 @@
-parts: ['vitrine/.build/part-1.b64', 'vitrine/.build/part-2.b64', 'vitrine/.build/part-3.b64']
-part vitrine/.build/part-1.b64 14399 chars
-part vitrine/.build/part-2.b64 14399 chars
-part vitrine/.build/part-3.b64 14359 chars
-total b64 chars 42596
-written bytes 107629
-sha256 d8dd6cd1f52dcaa4b7528ee54c62b71e4c88329be414b330170425dba8d2d438
+parts: []
+total b64 chars 0
+written bytes 0
+sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
