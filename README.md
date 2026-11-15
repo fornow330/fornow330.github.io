@@ -2,7 +2,7 @@
 
 一款**单文件 HTML 文字传奇**游戏：打开一个 `.html` 就能玩，不联网也能跑，手机上点按操作，挂机自动打怪。
 
-在线玩：<https://fornow330.github.io/legendword/>
+在线玩：<https://fornow330.github.io/legendword/>　·　开源协议：**MIT**
 
 ---
 
@@ -59,12 +59,25 @@
 ## 安装
 
 - 网页版：直接打开上面的链接
-- Android：APK 依次尝试「CDN → GitHub Pages → 内置副本」，改版后无需重装
+- Android：APK 依次尝试「GitHub Pages 加载器 → 内置加载器 → 内置本体」，改版后无需重装；不联网也能玩
+
+## 开源与源码
+
+- **协议**：MIT，见 [LICENSE](LICENSE) —— 可自由使用、修改、分发、商用，保留版权声明即可
+- **可读源码**：[`legendword/game.html`](legendword/game.html)（完整的单文件游戏本体；由 `.github/workflows/assemble.yml` 在每次分片更新后自动还原并提交）
+- **本地自己拼**：
+
+```bash
+cat legendword/c?? | base64 -d | gzip -d > game.html
+```
 
 ## 仓库结构
 
 ```
-index.html              # 站点根，跳转 fornow.cc
-legendword/index.html   # 游戏加载器（解压内嵌本体）
-legendword/c00..c13     # 游戏本体，gzip + base64 分片，共 14 片（加载器按 BUILD 提交号取片）
+index.html               # 站点根，跳转 fornow.cc
+legendword/index.html    # 游戏加载器（解压分片、四级 CDN 回退）
+legendword/c00..c13      # 游戏本体，gzip+base64 分片，共 14 片
+legendword/game.html     # 自动还原的可读源码（不要手改，会被覆盖）
+legendword/BUILD.txt     # 当前 BUILD 提交号 / 字节数 / md5
+LICENSE                  # MIT
 ```
