@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'legendword/c*'
+      - '.github/workflows/assemble.yml'
   workflow_dispatch:
 
 permissions:
