@@ -1,0 +1,2057 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0f1113" media="(prefers-color-scheme: dark)" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Vitrine" />
+<title>Vitrine · 数字收藏馆</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111214'/%3E%3Crect x='13' y='18' width='38' height='28' rx='4' fill='none' stroke='%23fff' stroke-width='2.5'/%3E%3Ccircle cx='24' cy='28' r='4' fill='%23fff'/%3E%3Cpath d='M15 43l11-10 8 7 7-5 8 8' stroke='%23fff' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E" />
+<meta name="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23111214'/%3E%3Crect x='13' y='18' width='38' height='28' rx='4' fill='none' stroke='%23fff' stroke-width='2.5'/%3E%3Ccircle cx='24' cy='28' r='4' fill='%23fff'/%3E%3Cpath d='M15 43l11-10 8 7 7-5 8 8' stroke='%23fff' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E" />
+<style>
+:root{
+  --text:#111214; --bg:#ffffff; --el:#f5f6f8; --sel:#ebecf0;
+  --t2:#5c6069; --t3:#9aa0a6; --border:#e4e6ea;
+  --pos:#1e8e55; --neg:#c0392b;
+  --shadow:0 1px 2px rgba(17,18,20,.06), 0 8px 24px rgba(17,18,20,.07);
+  --r-card:14px; --r-ctl:10px; --r-pill:999px;
+  --font:-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --text:#eceef0; --bg:#0f1113; --el:#1a1d21; --sel:#23272c;
+    --t2:#a2a8b0; --t3:#6e747c; --border:#2a2f35;
+    --pos:#35c77e; --neg:#f2645a;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.45);
+  }
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0; padding:0}
+body{
+  font-family:var(--font); background:var(--bg); color:var(--text);
+  -webkit-font-smoothing:antialiased; overscroll-behavior-y:none;
+}
+.num{font-variant-numeric:tabular-nums; font-feature-settings:"tnum"}
+a{color:inherit}
+button,input,select,textarea{font-family:inherit; color:inherit}
+input,textarea{font-size:16px} /* 小于 16px 时 iOS 会在聚焦时放大页面 */
+
+/* 底部标签栏高度 + 安全区，所有视图共用这个内边距避免被遮住 */
+:root{ --tabh: 56px; --safe-b: env(safe-area-inset-bottom, 0px); }
+
+#app{min-height:100dvh; display:flex; flex-direction:column}
+#view{flex:1; padding-bottom:calc(var(--tabh) + var(--safe-b) + 24px)}
+.wrap{width:100%; max-width:920px; margin:0 auto; padding:0 20px}
+
+.tabbar{
+  position:fixed; left:0; right:0; bottom:0; z-index:20;
+  background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:saturate(180%) blur(16px); -webkit-backdrop-filter:saturate(180%) blur(16px);
+  border-top:1px solid var(--border);
+  padding-bottom:var(--safe-b);
+}
+.tabbar-in{display:flex; max-width:560px; margin:0 auto}
+.tab{
+  flex:1; height:var(--tabh); border:0; background:none; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:3px; color:var(--t3); cursor:pointer;
+}
+.tab[aria-selected="true"]{color:var(--text)}
+.tab span{font-size:11px; letter-spacing:.2px}
+.tab .ico{width:22px; height:22px}
+
+/* ---------- 页头 ---------- */
+.hd{padding:22px 0 12px}
+.hd h1{margin:0; font-size:34px; line-height:40px; letter-spacing:-.5px; font-weight:700}
+.hd .meta{margin:6px 0 0; font-size:14px; color:var(--t2)}
+
+/* ---------- 搜索 / 排序 ---------- */
+.tools{display:flex; gap:10px; margin-top:16px}
+.search{
+  flex:1; min-width:0; display:flex; align-items:center; gap:8px; height:40px; padding:0 12px;
+  background:var(--el); border:1px solid var(--border); border-radius:var(--r-ctl);
+}
+.search input{
+  flex:1; min-width:0; border:0; background:none; outline:none; font-size:16px; height:38px;
+}
+.search svg{width:16px; height:16px; flex:none; color:var(--t3)}
+.sortbtn{
+  display:flex; align-items:center; gap:6px; height:40px; padding:0 12px; flex:none;
+  background:var(--el); border:1px solid var(--border); border-radius:var(--r-ctl);
+  font-size:14px; cursor:pointer;
+}
+.sortbtn svg{width:14px; height:14px}
+
+.chips{display:flex; gap:8px; overflow-x:auto; padding:14px 0 2px; scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  flex:none; padding:7px 14px; border-radius:var(--r-pill); border:1px solid var(--border);
+  background:var(--el); font-size:14px; cursor:pointer; white-space:nowrap;
+}
+.chip[aria-pressed="true"]{background:var(--text); color:var(--bg); border-color:var(--text)}
+
+/* ---------- 卡片网格 ---------- */
+.grid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:16px}
+@media (min-width:700px){ .grid{grid-template-columns:repeat(3,1fr)} }
+@media (min-width:1000px){ .grid{grid-template-columns:repeat(4,1fr)} }
+
+.card{
+  display:flex; flex-direction:column; text-align:left; padding:0; cursor:pointer;
+  background:var(--bg); border:1px solid var(--border); border-radius:var(--r-card);
+  overflow:hidden; color:inherit;
+}
+.card:active{opacity:.65}
+.cover{position:relative; aspect-ratio:1/1; background:var(--el); display:flex; align-items:center; justify-content:center; overflow:hidden}
+.cover img{width:100%; height:100%; object-fit:cover; display:block}
+.cover svg{width:36px; height:36px; color:var(--t3)}
+.wish{
+  position:absolute; top:8px; left:8px; padding:3px 7px; border-radius:6px;
+  background:var(--bg); font-size:9px; font-weight:700; letter-spacing:1px; color:var(--t2);
+  border:1px solid var(--border);
+}
+.card-body{padding:10px 12px 12px; display:flex; flex-direction:column; gap:4px}
+.card-title{
+  font-size:14px; font-weight:600; line-height:19px; min-height:38px;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.card-foot{display:flex; align-items:baseline; gap:6px; min-width:0}
+.card-cat{font-size:12px; color:var(--t3); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.card-val{font-size:13px; font-weight:600}
+
+/* ---------- 空状态 ---------- */
+.empty{padding:64px 24px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:12px}
+.empty .big{width:56px; height:56px; color:var(--t3); opacity:.4}
+.empty h2{margin:0; font-size:22px; font-weight:600; letter-spacing:-.3px}
+.empty p{margin:0; font-size:14px; color:var(--t2); max-width:300px; line-height:20px}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  min-height:44px; padding:0 20px; border-radius:var(--r-pill); border:1px solid transparent;
+  background:var(--text); color:var(--bg); font-size:15px; font-weight:600; cursor:pointer;
+}
+.btn.ghost{background:none; color:var(--text); border-color:var(--border)}
+.btn svg{width:17px; height:17px}
+.btn:active{opacity:.85}
+
+/* ---------- 统计 ---------- */
+.hero{
+  background:var(--el); border-radius:var(--r-card); padding:18px 20px; margin-top:16px;
+}
+.hero .lab{font-size:13px; color:var(--t2); letter-spacing:.2px}
+.hero .val{font-size:36px; line-height:42px; font-weight:700; letter-spacing:-1px; margin-top:2px}
+.hero .delta{display:flex; align-items:baseline; gap:8px; margin-top:4px; font-size:14px}
+.hero .note{margin-top:10px; font-size:12px; color:var(--t3)}
+
+.tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px}
+.tile{background:var(--el); border-radius:var(--r-ctl); padding:12px 14px}
+.tile .lab{font-size:11px; color:var(--t3); letter-spacing:.4px; text-transform:uppercase}
+.tile .val{font-size:17px; font-weight:600; margin-top:4px}
+
+.chart{background:var(--el); border-radius:var(--r-card); padding:16px 18px; margin-top:10px}
+.chart-hd{display:flex; align-items:baseline; justify-content:space-between; gap:10px}
+.chart-hd .lab{font-size:13px; color:var(--t2)}
+.chart-hd .d{font-size:14px; font-weight:600}
+.chart svg{display:block; width:100%; height:120px; margin-top:8px}
+.chart-ft{display:flex; justify-content:space-between; font-size:12px; color:var(--t3); margin-top:6px}
+
+.bars{margin-top:10px; background:var(--el); border-radius:var(--r-card); padding:16px 18px}
+.bar-row{margin-top:10px}
+.bar-row:first-child{margin-top:0}
+.bar-top{display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px}
+.bar-track{height:6px; border-radius:3px; background:var(--bg); overflow:hidden}
+.bar-fill{height:100%; border-radius:3px; background:var(--text); opacity:.85}
+
+/* ---------- 列表页 ---------- */
+.row{
+  display:flex; gap:14px; width:100%; text-align:left; padding:16px; cursor:pointer;
+  background:var(--el); border:0; border-radius:var(--r-card); margin-top:10px; color:inherit;
+}
+.row:active{opacity:.7}
+.row:disabled{opacity:.45; cursor:default}
+.row .ri{width:40px; height:40px; flex:none; border-radius:var(--r-ctl); background:var(--sel); display:flex; align-items:center; justify-content:center}
+.row .ri svg{width:20px; height:20px}
+.row .rb{flex:1; min-width:0}
+.row .rt{display:flex; justify-content:space-between; align-items:center; gap:8px}
+.row .rt b{font-size:15px}
+.row .rt small{font-size:12px; color:var(--t3); flex:none}
+.row .rd{font-size:13px; color:var(--t2); line-height:18px; margin-top:4px}
+.ob{display:flex;flex-direction:column;gap:12px;padding:14px 14px 13px;margin:0 0 14px;
+  border:1px solid var(--border);border-radius:var(--r-card);background:var(--el)}
+.ob b{font-size:14px;font-weight:600;color:var(--text)}
+.ob p{margin:5px 0 0;font-size:13px;color:var(--t2);line-height:19px}
+.ob-act{display:flex;gap:8px;flex-wrap:wrap}
+.ob-act .btn{width:auto;flex:1 1 auto;min-height:38px;font-size:13px;padding:0 14px;margin:0}
+.foot-note{font-size:12px; color:var(--t3); line-height:17px; margin-top:18px}
+
+/* ---------- 详情 ---------- */
+.dt-hero{position:relative; aspect-ratio:1/1; background:var(--el); border-radius:var(--r-card); overflow:hidden; margin-top:8px}
+.dt-hero img{width:100%; height:100%; object-fit:cover; display:block}
+.dt-thumbs{display:flex; gap:8px; overflow-x:auto; margin-top:8px; scrollbar-width:none}
+.dt-thumbs::-webkit-scrollbar{display:none}
+.dt-thumbs img{width:64px; height:64px; border-radius:8px; object-fit:cover; flex:none; border:1px solid var(--border)}
+.dt-thumbs img[aria-current="true"]{border-color:var(--text)}
+.dt-price{display:flex; gap:24px; margin-top:18px}
+.dt-price div .lab{font-size:12px; color:var(--t3); text-transform:uppercase; letter-spacing:.4px}
+.dt-price div .val{font-size:20px; font-weight:600; margin-top:2px}
+.sec-title{font-size:13px; color:var(--t2); margin:22px 0 8px; font-weight:600; letter-spacing:.2px}
+.kv{background:var(--el); border-radius:var(--r-card); padding:2px 16px}
+.kv-row{display:flex; justify-content:space-between; gap:16px; padding:11px 0; font-size:14px; border-bottom:1px solid var(--border)}
+.kv-row:last-child{border-bottom:0}
+.kv-row span:first-child{color:var(--t2); flex:none}
+.kv-row span:last-child{text-align:right; min-width:0; overflow:hidden; text-overflow:ellipsis}
+.hist{display:flex; flex-direction:column; gap:1px}
+.hist-item{display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 16px; background:var(--el); font-size:14px}
+.hist-item:first-child{border-radius:var(--r-card) var(--r-card) 0 0}
+.hist-item:last-child{border-radius:0 0 var(--r-card) var(--r-card)}
+.hist-item .hm{font-weight:600}
+.hist-item small{color:var(--t3); font-size:12px}
+
+/* ---------- 表单 ---------- */
+.form{padding:0 0 24px}
+.field{margin-top:14px}
+.field label{display:block; font-size:13px; color:var(--t2); margin-bottom:6px}
+.field input, .field textarea, .field select{
+  width:100%; border:1px solid var(--border); background:var(--el); border-radius:var(--r-ctl);
+  padding:12px; outline:none; font-size:16px;
+}
+.field textarea{min-height:88px; resize:vertical; line-height:22px}
+.field input:focus, .field textarea:focus{border-color:var(--text)}
+.inline-2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.photos{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px}
+@media (min-width:700px){ .photos{grid-template-columns:repeat(5,1fr)} }
+.ph{position:relative; aspect-ratio:1/1; border-radius:10px; overflow:hidden; background:var(--el)}
+.ph img{width:100%; height:100%; object-fit:cover; display:block}
+.ph .del{
+  position:absolute; top:4px; right:4px; width:26px; height:26px; border-radius:50%;
+  border:0; background:rgba(0,0,0,.55); color:#fff; font-size:15px; line-height:1; cursor:pointer;
+}
+.ph.add{display:flex; align-items:center; justify-content:center; border:1px dashed var(--border); cursor:pointer}
+.ph.add svg{width:24px; height:24px; color:var(--t3)}
+.seg{display:flex; gap:8px}
+.seg button{
+  flex:1; min-height:44px; border-radius:var(--r-ctl); border:1px solid var(--border);
+  background:var(--el); font-size:14px; cursor:pointer;
+}
+.seg button[aria-pressed="true"]{background:var(--text); color:var(--bg); border-color:var(--text)}
+
+/* 全屏 sheet */
+.sheet{
+  position:fixed; inset:0; z-index:40; background:var(--bg); display:flex; flex-direction:column;
+  animation:slide .26s cubic-bezier(.32,.72,0,1);
+}
+@keyframes slide{from{transform:translateY(100%)} to{transform:translateY(0)}}
+.sheet-hd{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:calc(env(safe-area-inset-top, 0px) + 14px) 20px 12px; border-bottom:1px solid var(--border);
+}
+.sheet-hd b{font-size:17px}
+.sheet-hd button{background:none; border:0; font-size:15px; color:var(--t2); cursor:pointer; min-height:44px; padding:0 4px}
+.sheet-body{flex:1; overflow-y:auto; padding:0 20px calc(env(safe-area-inset-bottom, 0px) + 24px)}
+.sheet-ft{padding:12px 20px calc(env(safe-area-inset-bottom, 0px) + 12px); border-top:1px solid var(--border)}
+.sheet-ft .btn{width:100%}
+
+/* toast */
+.toast{
+  position:fixed; left:50%; bottom:calc(var(--tabh) + var(--safe-b) + 20px); transform:translateX(-50%);
+  background:var(--text); color:var(--bg); padding:10px 18px; border-radius:var(--r-pill);
+  font-size:14px; z-index:60; box-shadow:var(--shadow); max-width:82vw; text-align:center;
+  animation:fadein .2s ease; pointer-events:none;
+}
+@keyframes fadein{from{opacity:0; transform:translate(-50%, 6px)} to{opacity:1; transform:translate(-50%,0)}}
+
+/* 打印：保险清单 */
+#print-sheet{display:none}
+@media print{
+  @page{size:A4; margin:16mm 12mm}
+  body{background:#fff; color:#111}
+  #app, .tabbar, .toast{display:none !important}
+  #print-sheet{display:block !important; font-size:11pt}
+  #print-sheet h1{font-size:18pt; margin:0 0 4pt}
+  #print-sheet .pmeta{color:#666; font-size:9pt; margin-bottom:12pt}
+  #print-sheet .ptotals{display:flex; gap:22pt; padding:8pt 10pt; background:#f4f5f7; border-radius:6pt; margin-bottom:12pt}
+  #print-sheet .ptotals div span{display:block; color:#666; font-size:7.5pt; text-transform:uppercase; letter-spacing:.5pt}
+  #print-sheet .ptotals div strong{font-size:12pt}
+  #print-sheet table{width:100%; border-collapse:collapse; table-layout:fixed}
+  #print-sheet th{text-align:left; font-size:7.5pt; text-transform:uppercase; color:#666; border-bottom:1px solid #ddd; padding:4pt}
+  #print-sheet td{border-bottom:1px solid #eee; padding:5pt 4pt; vertical-align:top; font-size:9pt}
+  #print-sheet img{width:34pt; height:34pt; object-fit:cover; border-radius:2pt; display:block}
+  #print-sheet .noimg{width:34pt; height:34pt; border:1px dashed #ccc; color:#999; font-size:6pt; display:flex; align-items:center; justify-content:center}
+  #print-sheet tr{page-break-inside:avoid}
+  #print-sheet .pnote{margin-top:12pt; color:#777; font-size:7.5pt; line-height:1.5}
+  #print-sheet td.n{white-space:nowrap}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <main id="view"></main>
+  <nav class="tabbar">
+    <div class="tabbar-in" id="tabs"></div>
+  </nav>
+</div>
+
+<div id="sheet-root"></div>
+<section id="print-sheet"></section>
+
+<input type="file" id="camera-input" accept="image/*" capture="environment" hidden />
+<input type="file" id="gallery-input" accept="image/*" multiple hidden />
+
+<script>
+"use strict";
+
+/* =============================================================
+   Vitrine · 网页版
+   纯静态单页：IndexedDB 存数据与照片，浏览器原生拍照，
+   打印样式导出 PDF，Blob 下载 CSV / zip。无账号、无服务器、无上传。
+   ============================================================= */
+
+const DB_NAME = "vitrine";
+const DB_VER = 1;
+const MAX_EDGE = 2048;
+const THUMB_EDGE = 400;
+const MAIN_Q = 0.7;
+const THUMB_Q = 0.6;
+const PDF_MAX_ITEMS = 150;
+
+const CATEGORIES = [
+  { id: "cat_figure", name: "Figures", icon: "figure" },
+  { id: "cat_sneaker", name: "Sneakers", icon: "shoe" },
+  { id: "cat_vinyl", name: "Vinyl", icon: "note" },
+  { id: "cat_lego", name: "LEGO", icon: "box" },
+  { id: "cat_card", name: "Cards", icon: "card" },
+  { id: "cat_book", name: "Books", icon: "book" },
+  { id: "cat_other", name: "Other", icon: "archive" },
+];
+const DEFAULT_CATEGORY = "cat_figure";
+
+/* ---------------- 图标（内联 SVG，统一 24×24 线稿语言） ---------------- */
+const ICONS = {
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  chart: '<path d="M4 19V9M10 19V5M16 19v-7M22 19H2" stroke-linecap="round"/>',
+  doc: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h6"/>',
+  gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>',
+  search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>',
+  sort: '<path d="M8 4v16M8 20l-3-3M8 20l3-3M16 20V4M16 4l-3 3M16 4l3 3" stroke-linecap="round"/>',
+  camera: '<path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13.5" r="3.6"/>',
+  plus: '<path d="M12 5v14M5 12h14" stroke-linecap="round"/>',
+  frame: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="10" r="1.6"/><path d="M4 17l5-4.5 4 3.5 3-2.5 4 3.5" stroke-linecap="round"/>',
+  figure: '<circle cx="12" cy="5" r="2.4"/><path d="M12 8v6M8 20l4-6 4 6M7 11h10" stroke-linecap="round"/>',
+  shoe: '<path d="M3 14c3 0 5-1 6-3 3 2 7 3 11 4v3H3z"/><path d="M4 17h16" stroke-linecap="round"/>',
+  note: '<path d="M9 18V6l10-2v12" stroke-linecap="round"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>',
+  box: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9" stroke-linecap="round"/>',
+  card: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/>',
+  book: '<path d="M5 4h6a3 3 0 013 3v13a3 3 0 00-3-3H5z"/><path d="M19 4h-6a3 3 0 00-3 3v13a3 3 0 013-3h6z"/>',
+  archive: '<rect x="3" y="4" width="18" height="9" rx="1.5"/><path d="M5 13v6h14v-6M10 16h4" stroke-linecap="round"/>',
+  table: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11M15 9v11"/>',
+  zip: '<path d="M6 3h12v18H6z"/><path d="M12 3v6M12 12v1M12 16v1M12 20v1" stroke-linecap="round"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7v13h12V7" stroke-linecap="round"/><path d="M10 11v5M14 11v5"/>',
+  back: '<path d="M15 5l-7 7 7 7" stroke-linecap="round"/>',
+};
+function icon(name, cls){
+  return '<svg class="' + (cls || "ico") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">' + (ICONS[name] || ICONS.archive) + "</svg>";
+}
+const catIcon = (id) => {
+  const c = CATEGORIES.find((x) => x.id === id);
+  return c ? c.icon : "archive";
+};
+const catName = (id) => {
+  const c = CATEGORIES.find((x) => x.id === id);
+  const key = "cat." + (c ? c.id.replace("cat_", "") : "other");
+  const translated = t(key);
+  return translated === key ? (c ? c.name : "Other") : translated;
+};
+
+/* =============================================================
+   多语言：默认英语，IP 判定国家后再决定，用户手动选择优先级最高
+   ============================================================= */
+const LANGS = [
+  { id: "en", label: "English", short: "EN", locale: "en-US" },
+  { id: "zh-Hans", label: "简体中文", short: "中文", locale: "zh-CN" },
+  { id: "de", label: "Deutsch", short: "DE", locale: "de-DE" },
+  { id: "fr", label: "Français", short: "FR", locale: "fr-FR" },
+];
+
+const I18N = {
+  en: {
+    "nav.collection": "Collection", "nav.stats": "Stats", "nav.lists": "Lists", "nav.settings": "Settings",
+    "cat.figure": "Figures", "cat.sneaker": "Sneakers", "cat.vinyl": "Vinyl", "cat.lego": "LEGO",
+    "cat.card": "Cards", "cat.book": "Books", "cat.other": "Other",
+    "ob.title": "A sample is already here",
+    "ob.body": "Open it to see how photos, purchase price and value history work. Delete it whenever you are ready.",
+    "ob.open": "Open sample", "ob.remove": "Delete sample",
+    "ob.sampleName": "Sample figure", "ob.sampleNote": "Placeholder item — safe to delete.",
+    "c.cancel": "Cancel", "c.save": "Save", "c.all": "All", "c.back": "Back", "c.delete": "Delete",
+    "col.title": "Collection",
+    "col.count": "{n} items", "col.count1": "{n} item",
+    "col.worth": " · {v} worth now",
+    "col.search": "Search name, brand, note",
+    "col.noMatches": "No matches", "col.noMatchesBody": "Nothing in your collection matches this search.",
+    "col.clear": "Clear filters",
+    "col.startTitle": "Start your collection",
+    "col.startBody": "Photograph one item, add a name, done. Everything stays in this browser.",
+    "col.addFirst": "Add your first item", "col.addItem": "Add item", "col.wish": "WISH",
+    "sort.recent": "Recent", "sort.valueDesc": "Value ↓", "sort.valueAsc": "Value ↑", "sort.title": "A–Z",
+    "st.title": "Stats", "st.worthNow": "Worth now",
+    "st.vsPaid": "{p}% vs paid", "st.addPaid": "Add what you paid to see gains",
+    "st.nothing": "Nothing valued yet — showing purchase prices",
+    "st.valued": "{a} of {b} valued",
+    "st.items": "Items", "st.paid": "Paid", "st.wish": "Wishlist",
+    "st.quarterly": "Collection value · quarterly",
+    "st.curveEmpty": "Add a valuation to an item and the curve appears here.",
+    "li.title": "Lists",
+    "li.lede": "Files are generated in your browser and downloaded. Nothing is uploaded anywhere.",
+    "li.pdf.t": "Insurance inventory",
+    "li.pdf.d": "Every owned item with photo, quantity, location and value — one printable sheet you can hand to an insurer.",
+    "li.csv.t": "Spreadsheet (CSV)",
+    "li.csv.d": "All items, including wishlist. Opens in Excel or Numbers with names intact.",
+    "li.zip.t": "Backup (zip)",
+    "li.zip.d": "Data plus every photo, packed locally. Keep it wherever you control — there is no cloud copy.",
+    "li.empty": "Add an item first — there is nothing to export yet.",
+    "li.note": "The insurance sheet states plainly that values are your own estimates, not appraisals. No app can authenticate or price an item for you.",
+    "se.title": "Settings",
+    "se.items": "Items", "se.valued": "Valued", "se.currency": "Currency",
+    "se.storage": "Storage", "se.storageVal": "IndexedDB · this browser",
+    "se.account": "Account", "se.accountVal": "None",
+    "se.whereT": "Where your data lives",
+    "se.whereB": "Everything sits in this browser's local storage on this device. No account, no server, no analytics. Backups are manual — export a zip and put it wherever you like. Automatic sync is deliberately not promised, because it is not implemented.",
+    "se.limitT": "Honest limits",
+    "se.limitB": "Clearing browser data wipes the collection — export a backup first. Photos are compressed to 2048px, originals are not kept. Restoring from a backup is not built yet. iOS Safari may evict site data after long inactivity.",
+    "se.backup": "Export a backup now", "se.backupHint": "Do this before you clear browser data or switch phones.",
+    "se.lang": "Language", "se.langAuto": "Follows your browser language · change anytime",
+    "se.rate": "Shown in {c} at a fixed reference rate (1 USD = {r}). Display only — not a live rate.",
+    "ex.rate": "Amounts converted at a fixed reference rate (1 USD = {r}, as of {d}). This is not a trading rate.",
+    "dt.notFound": "Item not found", "dt.paid": "Paid", "dt.worth": "Worth now",
+    "dt.history": "Value history", "dt.details": "Details",
+    "dt.category": "Category", "dt.qty": "Quantity", "dt.brand": "Brand",
+    "dt.acquired": "Acquired", "dt.location": "Location", "dt.serial": "Serial", "dt.note": "Note",
+    "dt.valuations": "Valuations", "dt.addVal": "Record a valuation",
+    "dt.longPress": "long-press to delete", "dt.delete": "Delete item",
+    "fm.new": "New item", "fm.name": "Name", "fm.namePh": "What is it?",
+    "fm.category": "Category", "fm.photos": "Photos",
+    "fm.photoHint": "Lay it flat · shoot from above. First photo becomes the cover.",
+    "fm.status": "Status", "fm.owned": "Owned", "fm.wish": "Wishlist",
+    "fm.paidEach": "Paid (each)", "fm.qty": "Quantity", "fm.acquired": "Acquired",
+    "fm.brand": "Brand", "fm.optional": "Optional",
+    "fm.location": "Storage location", "fm.locationPh": "Shelf A, box 3",
+    "fm.serial": "Serial / edition", "fm.note": "Note",
+    "fm.notePh": "Condition, provenance, anything you will want later",
+    "fm.valTitle": "Add valuation", "fm.valuePerItem": "Value per item", "fm.date": "Date",
+    "fm.valNote": "Values are your own estimates recorded on the date shown. They are not appraisals.",
+    "tz.processing": "Processing {n} photo…", "tz.processingPlural": "Processing {n} photos…",
+    "tz.photoFail": "One photo could not be read",
+    "tz.nameFirst": "Give it a name first", "tz.photoRequired": "Add at least one photo",
+    "tz.saved": "Saved", "tz.future": "Date cannot be in the future",
+    "tz.enterAmount": "Enter an amount", "tz.pickDate": "Pick a date",
+    "tz.valSaved": "Valuation recorded", "tz.valRemoved": "Valuation removed",
+    "tz.delConfirm": "Delete this item with all its photos and valuations?",
+    "tz.valConfirm": "Remove this valuation?",
+    "tz.deleted": "Deleted", "tz.csvDone": "CSV downloaded",
+    "tz.packing": "Packing…", "tz.printHint": "Print dialog opening — choose Save as PDF",
+    "tz.backupDone": "Backup downloaded · {n} photos", "tz.limit9": "9 photos is the limit",
+    "ex.title": "Collection inventory", "ex.meta": "{n} items · generated {d} · Vitrine",
+    "ex.paid": "Paid", "ex.estimated": "Estimated value", "ex.items": "Items",
+    "ex.item": "Item", "ex.qty": "Qty", "ex.location": "Location", "ex.value": "Value",
+    "ex.disclaimer": "Values shown are the owner's own estimates, recorded in Vitrine. They are not appraisals, authentications or professional valuations. Purchase prices are as recorded by the owner.",
+    "ex.noPhoto": "no photo",
+    "stg.title": "Storage unavailable",
+    "stg.body": "This browser blocked local storage. Safari private mode and some in-app browsers do that. Open in Safari or Chrome directly, not inside a chat preview.",
+    "lang.title": "Language",
+  },
+
+  "zh-Hans": {
+    "nav.collection": "藏品", "nav.stats": "统计", "nav.lists": "导出", "nav.settings": "设置",
+    "cat.figure": "手办", "cat.sneaker": "球鞋", "cat.vinyl": "黑胶", "cat.lego": "乐高",
+    "cat.card": "卡牌", "cat.book": "书籍", "cat.other": "其他",
+    "ob.title": "先放了一件示例",
+    "ob.body": "点开看看照片、入手价和估值曲线是怎么用的，不需要了随时删掉。",
+    "ob.open": "打开示例", "ob.remove": "删除示例",
+    "ob.sampleName": "示例手办", "ob.sampleNote": "占位示例，可直接删除。",
+    "c.cancel": "取消", "c.save": "保存", "c.all": "全部", "c.back": "返回", "c.delete": "删除",
+    "col.title": "我的收藏",
+    "col.count": "{n} 件藏品", "col.count1": "{n} 件藏品",
+    "col.worth": " · 现估 {v}",
+    "col.search": "搜名称、品牌、备注",
+    "col.noMatches": "没有匹配的藏品", "col.noMatchesBody": "当前搜索或筛选条件下没有藏品。",
+    "col.clear": "清除筛选",
+    "col.startTitle": "开始建立你的收藏",
+    "col.startBody": "拍一张照片，填个名字就行。所有数据都留在这个浏览器里。",
+    "col.addFirst": "添加第一件藏品", "col.addItem": "添加藏品", "col.wish": "想收",
+    "sort.recent": "最近", "sort.valueDesc": "价值 ↓", "sort.valueAsc": "价值 ↑", "sort.title": "A–Z",
+    "st.title": "统计", "st.worthNow": "当前估值",
+    "st.vsPaid": "较投入 {p}%", "st.addPaid": "填入入手价后即可看到盈亏",
+    "st.nothing": "还没有估值记录 — 暂按入手价显示",
+    "st.valued": "{b} 件中 {a} 件已估值",
+    "st.items": "件数", "st.paid": "总投入", "st.wish": "想收",
+    "st.quarterly": "整柜估值 · 按季度",
+    "st.curveEmpty": "给任一藏品录入估值，曲线就会出现在这里。",
+    "li.title": "导出",
+    "li.lede": "文件在浏览器本地生成后下载，不会上传到任何地方。",
+    "li.pdf.t": "保险清单",
+    "li.pdf.d": "所有已入手藏品，含照片、数量、存放位置与价值 —— 一页纸直接交给保险公司。",
+    "li.csv.t": "表格（CSV）",
+    "li.csv.d": "全部藏品（含想收），Excel 或 Numbers 打开，中文不乱码。",
+    "li.zip.t": "备份（zip）",
+    "li.zip.d": "数据加全部照片，在本地打包。存在你自己选的地方 —— 没有云端副本。",
+    "li.empty": "先添加一件藏品，现在还没有东西可导出。",
+    "li.note": "保险清单里会明写：这些价值是藏家自报，不是鉴定结论。任何 App 都无法替你验真伪或定价。",
+    "se.title": "设置",
+    "se.items": "藏品数", "se.valued": "已估值", "se.currency": "币种",
+    "se.storage": "存储", "se.storageVal": "IndexedDB · 本浏览器",
+    "se.account": "账号", "se.accountVal": "无",
+    "se.whereT": "数据存在哪",
+    "se.whereB": "全部数据都在本设备这个浏览器的本地存储中。无账号、无服务器、无统计埋点。备份是手动的 —— 导出 zip 存到你喜欢的地方。自动同步不做承诺，因为确实没有实现。",
+    "se.limitT": "必须知道的局限",
+    "se.limitB": "清除浏览器数据会连收藏一起抹掉 —— 先导出备份。照片压缩到长边 2048，不保留原图。从备份恢复的功能还没做。iOS Safari 在长期不用后可能回收站点数据。",
+    "se.backup": "立即导出备份", "se.backupHint": "清浏览器数据或换手机之前，先做这一步。",
+    "se.lang": "语言", "se.langAuto": "跟随浏览器语言 · 随时可改",
+    "se.rate": "金额按固定参考汇率换算为 {c}（1 美元 = {r}），仅用于展示，不是实时汇率。",
+    "ex.rate": "金额按固定参考汇率换算（1 美元 = {r}，基准 {d}），不是可交易汇率。",
+    "dt.notFound": "找不到这件藏品", "dt.paid": "投入", "dt.worth": "当前估值",
+    "dt.history": "估值历史", "dt.details": "详情",
+    "dt.category": "分类", "dt.qty": "数量", "dt.brand": "品牌",
+    "dt.acquired": "入手日期", "dt.location": "存放位置", "dt.serial": "编号", "dt.note": "备注",
+    "dt.valuations": "估值记录", "dt.addVal": "录入一次估值",
+    "dt.longPress": "长按删除", "dt.delete": "删除这件藏品",
+    "fm.new": "新藏品", "fm.name": "名称", "fm.namePh": "这是什么？",
+    "fm.category": "分类", "fm.photos": "照片",
+    "fm.photoHint": "平铺俯拍，效果最好。第一张自动作为封面。",
+    "fm.status": "状态", "fm.owned": "已入手", "fm.wish": "想收",
+    "fm.paidEach": "入手价（单件）", "fm.qty": "数量", "fm.acquired": "入手日期",
+    "fm.brand": "品牌", "fm.optional": "选填",
+    "fm.location": "存放位置", "fm.locationPh": "A 柜，第三箱",
+    "fm.serial": "编号 / 版次", "fm.note": "备注",
+    "fm.notePh": "成色、来源，任何以后用得上的信息",
+    "fm.valTitle": "录入估值", "fm.valuePerItem": "单件价值", "fm.date": "日期",
+    "fm.valNote": "这是你自己记录的估值，不是鉴定结论。",
+    "tz.processing": "正在处理 {n} 张照片…", "tz.processingPlural": "正在处理 {n} 张照片…",
+    "tz.photoFail": "有一张照片读不出来",
+    "tz.nameFirst": "先给它起个名字", "tz.photoRequired": "至少需要一张照片",
+    "tz.saved": "已保存", "tz.future": "日期不能选未来",
+    "tz.enterAmount": "请输入金额", "tz.pickDate": "请选择日期",
+    "tz.valSaved": "估值已记录", "tz.valRemoved": "估值已删除",
+    "tz.delConfirm": "删除这件藏品，连同全部照片和估值记录？",
+    "tz.valConfirm": "删除这条估值？",
+    "tz.deleted": "已删除", "tz.csvDone": "CSV 已下载",
+    "tz.packing": "正在打包…", "tz.printHint": "即将打开打印面板 — 选择「存储为 PDF」",
+    "tz.backupDone": "备份已下载 · 含 {n} 张照片", "tz.limit9": "最多 9 张照片",
+    "ex.title": "收藏清单", "ex.meta": "{n} 件 · 生成于 {d} · Vitrine",
+    "ex.paid": "总投入", "ex.estimated": "估算价值", "ex.items": "件数",
+    "ex.item": "藏品", "ex.qty": "数量", "ex.location": "存放位置", "ex.value": "价值",
+    "ex.disclaimer": "本清单中的价值由藏家本人记录，不构成鉴定、估价或专业意见；入手价亦取自藏家自述。",
+    "ex.noPhoto": "无照片",
+    "stg.title": "无法使用本地存储",
+    "stg.body": "这个浏览器禁止了本地存储。Safari 无痕模式和部分 App 内置浏览器会这样。请直接用 Safari 或 Chrome 打开，不要在聊天窗口的预览里打开。",
+    "lang.title": "语言",
+  },
+
+  de: {
+    "nav.collection": "Sammlung", "nav.stats": "Statistik", "nav.lists": "Exporte", "nav.settings": "Einstellungen",
+    "cat.figure": "Figuren", "cat.sneaker": "Sneakers", "cat.vinyl": "Vinyl", "cat.lego": "LEGO",
+    "cat.card": "Karten", "cat.book": "Bücher", "cat.other": "Sonstiges",
+    "ob.title": "Ein Beispiel ist schon da",
+    "ob.body": "Öffne es, um Fotos, Kaufpreis und Wertverlauf zu sehen. Löschen kannst du es jederzeit.",
+    "ob.open": "Beispiel öffnen", "ob.remove": "Beispiel löschen",
+    "ob.sampleName": "Beispiel-Figur", "ob.sampleNote": "Platzhalter — kann gelöscht werden.",
+    "c.cancel": "Abbrechen", "c.save": "Speichern", "c.all": "Alle", "c.back": "Zurück", "c.delete": "Löschen",
+    "col.title": "Sammlung",
+    "col.count": "{n} Objekte", "col.count1": "{n} Objekt",
+    "col.worth": " · jetzt {v} wert",
+    "col.search": "Name, Marke, Notiz suchen",
+    "col.noMatches": "Keine Treffer", "col.noMatchesBody": "Nichts in deiner Sammlung passt zu dieser Suche.",
+    "col.clear": "Filter zurücksetzen",
+    "col.startTitle": "Starte deine Sammlung",
+    "col.startBody": "Ein Objekt fotografieren, Namen eintragen, fertig. Alles bleibt in diesem Browser.",
+    "col.addFirst": "Erstes Objekt hinzufügen", "col.addItem": "Objekt hinzufügen", "col.wish": "WUNSCH",
+    "sort.recent": "Neueste", "sort.valueDesc": "Wert ↓", "sort.valueAsc": "Wert ↑", "sort.title": "A–Z",
+    "st.title": "Statistik", "st.worthNow": "Aktueller Wert",
+    "st.vsPaid": "{p} % vs. bezahlt", "st.addPaid": "Kaufpreis eintragen, um Gewinn zu sehen",
+    "st.nothing": "Noch nichts bewertet — Kaufpreise werden angezeigt",
+    "st.valued": "{a} von {b} bewertet",
+    "st.items": "Objekte", "st.paid": "Bezahlt", "st.wish": "Wunschliste",
+    "st.quarterly": "Sammlungswert · quartalsweise",
+    "st.curveEmpty": "Bewerte ein Objekt, dann erscheint hier die Kurve.",
+    "li.title": "Exporte",
+    "li.lede": "Dateien entstehen lokal im Browser und werden heruntergeladen. Nichts wird hochgeladen.",
+    "li.pdf.t": "Versicherungsliste",
+    "li.pdf.d": "Jedes eigene Objekt mit Foto, Anzahl, Ort und Wert — ein Blatt für die Versicherung.",
+    "li.csv.t": "Tabelle (CSV)",
+    "li.csv.d": "Alle Objekte inkl. Wunschliste. Öffnet in Excel oder Numbers, Namen bleiben lesbar.",
+    "li.zip.t": "Backup (zip)",
+    "li.zip.d": "Daten und alle Fotos, lokal gepackt. Bewahre es auf, wo du willst — keine Cloud-Kopie.",
+    "li.empty": "Füge zuerst ein Objekt hinzu — es gibt noch nichts zu exportieren.",
+    "li.note": "Die Versicherungsliste sagt klar: Werte sind eigene Schätzungen, keine Gutachten. Keine App kann Echtheit prüfen oder Preise festlegen.",
+    "se.title": "Einstellungen",
+    "se.items": "Objekte", "se.valued": "Bewertet", "se.currency": "Währung",
+    "se.storage": "Speicher", "se.storageVal": "IndexedDB · dieser Browser",
+    "se.account": "Konto", "se.accountVal": "Keines",
+    "se.whereT": "Wo deine Daten liegen",
+    "se.whereB": "Alles liegt im lokalen Speicher dieses Browsers auf diesem Gerät. Kein Konto, kein Server, keine Analytics. Backups sind manuell — zip exportieren und ablegen, wo du willst. Automatische Synchronisierung wird bewusst nicht versprochen, weil sie nicht implementiert ist.",
+    "se.limitT": "Ehrliche Grenzen",
+    "se.limitB": "Browserdaten löschen entfernt die Sammlung — vorher Backup exportieren. Fotos werden auf 2048 px komprimiert, Originale werden nicht behalten. Wiederherstellen aus Backup ist noch nicht gebaut. iOS Safari kann Websitedaten nach langer Inaktivität löschen.",
+    "se.backup": "Jetzt Backup exportieren", "se.backupHint": "Vor dem Löschen von Browserdaten oder Handywechsel erledigen.",
+    "se.lang": "Sprache", "se.langAuto": "Folgt deiner Browsersprache · jederzeit änderbar",
+    "se.rate": "Anzeige in {c} zu einem festen Referenzkurs (1 USD = {r}). Nur zur Anzeige, kein Live-Kurs.",
+    "ex.rate": "Beträge zum festen Referenzkurs umgerechnet (1 USD = {r}, Stand {d}). Kein Handelskurs.",
+    "dt.notFound": "Objekt nicht gefunden", "dt.paid": "Bezahlt", "dt.worth": "Aktueller Wert",
+    "dt.history": "Wertverlauf", "dt.details": "Details",
+    "dt.category": "Kategorie", "dt.qty": "Anzahl", "dt.brand": "Marke",
+    "dt.acquired": "Erworben", "dt.location": "Ort", "dt.serial": "Seriennummer", "dt.note": "Notiz",
+    "dt.valuations": "Bewertungen", "dt.addVal": "Bewertung erfassen",
+    "dt.longPress": "lang drücken zum Löschen", "dt.delete": "Objekt löschen",
+    "fm.new": "Neues Objekt", "fm.name": "Name", "fm.namePh": "Was ist es?",
+    "fm.category": "Kategorie", "fm.photos": "Fotos",
+    "fm.photoHint": "Flach hinlegen · von oben fotografieren. Erstes Foto wird Titelbild.",
+    "fm.status": "Status", "fm.owned": "Eigentum", "fm.wish": "Wunschliste",
+    "fm.paidEach": "Bezahlt (pro Stück)", "fm.qty": "Anzahl", "fm.acquired": "Erworben",
+    "fm.brand": "Marke", "fm.optional": "Optional",
+    "fm.location": "Aufbewahrungsort", "fm.locationPh": "Regal A, Kiste 3",
+    "fm.serial": "Seriennummer / Auflage", "fm.note": "Notiz",
+    "fm.notePh": "Zustand, Herkunft, alles was du später brauchst",
+    "fm.valTitle": "Bewertung hinzufügen", "fm.valuePerItem": "Wert pro Stück", "fm.date": "Datum",
+    "fm.valNote": "Werte sind deine eigenen Schätzungen zum angegebenen Datum. Keine Gutachten.",
+    "tz.processing": "Verarbeite {n} Foto…", "tz.processingPlural": "Verarbeite {n} Fotos…",
+    "tz.photoFail": "Ein Foto konnte nicht gelesen werden",
+    "tz.nameFirst": "Gib ihm zuerst einen Namen", "tz.photoRequired": "Mindestens ein Foto nötig",
+    "tz.saved": "Gespeichert", "tz.future": "Datum darf nicht in der Zukunft liegen",
+    "tz.enterAmount": "Betrag eingeben", "tz.pickDate": "Datum wählen",
+    "tz.valSaved": "Bewertung erfasst", "tz.valRemoved": "Bewertung entfernt",
+    "tz.delConfirm": "Dieses Objekt mit allen Fotos und Bewertungen löschen?",
+    "tz.valConfirm": "Diese Bewertung entfernen?",
+    "tz.deleted": "Gelöscht", "tz.csvDone": "CSV heruntergeladen",
+    "tz.packing": "Packe…", "tz.printHint": "Druckdialog öffnet — „Als PDF sichern“ wählen",
+    "tz.backupDone": "Backup heruntergeladen · {n} Fotos", "tz.limit9": "Maximal 9 Fotos",
+    "ex.title": "Sammlungsverzeichnis", "ex.meta": "{n} Objekte · erstellt {d} · Vitrine",
+    "ex.paid": "Bezahlt", "ex.estimated": "Geschätzter Wert", "ex.items": "Objekte",
+    "ex.item": "Objekt", "ex.qty": "Anz.", "ex.location": "Ort", "ex.value": "Wert",
+    "ex.disclaimer": "Die angegebenen Werte sind eigene Schätzungen des Eigentümers, erfasst in Vitrine. Sie sind keine Gutachten, Echtheitsprüfungen oder professionelle Bewertungen. Kaufpreise entsprechen den Angaben des Eigentümers.",
+    "ex.noPhoto": "kein Foto",
+    "stg.title": "Speicher nicht verfügbar",
+    "stg.body": "Dieser Browser blockiert lokalen Speicher. Safari im privaten Modus und manche In-App-Browser tun das. Öffne direkt in Safari oder Chrome.",
+    "lang.title": "Sprache",
+  },
+
+  fr: {
+    "nav.collection": "Collection", "nav.stats": "Statistiques", "nav.lists": "Exports", "nav.settings": "Réglages",
+    "cat.figure": "Figurines", "cat.sneaker": "Sneakers", "cat.vinyl": "Vinyles", "cat.lego": "LEGO",
+    "cat.card": "Cartes", "cat.book": "Livres", "cat.other": "Autres",
+    "ob.title": "Un exemple vous attend",
+    "ob.body": "Ouvrez-le pour voir les photos, le prix d’achat et l’historique de valeur. Supprimez-le quand vous voulez.",
+    "ob.open": "Ouvrir l’exemple", "ob.remove": "Supprimer l’exemple",
+    "ob.sampleName": "Figurine d’exemple", "ob.sampleNote": "Élément de démonstration — supprimable.",
+    "c.cancel": "Annuler", "c.save": "Enregistrer", "c.all": "Tout", "c.back": "Retour", "c.delete": "Supprimer",
+    "col.title": "Ma collection",
+    "col.count": "{n} objets", "col.count1": "{n} objet",
+    "col.worth": " · {v} de valeur aujourd’hui",
+    "col.search": "Nom, marque, note",
+    "col.noMatches": "Aucun résultat", "col.noMatchesBody": "Rien dans votre collection ne correspond à cette recherche.",
+    "col.clear": "Effacer les filtres",
+    "col.startTitle": "Commencez votre collection",
+    "col.startBody": "Photographiez un objet, ajoutez un nom, c’est tout. Tout reste dans ce navigateur.",
+    "col.addFirst": "Ajouter votre premier objet", "col.addItem": "Ajouter un objet", "col.wish": "ENVIE",
+    "sort.recent": "Récent", "sort.valueDesc": "Valeur ↓", "sort.valueAsc": "Valeur ↑", "sort.title": "A–Z",
+    "st.title": "Statistiques", "st.worthNow": "Valeur actuelle",
+    "st.vsPaid": "{p} % vs payé", "st.addPaid": "Ajoutez le prix payé pour voir le gain",
+    "st.nothing": "Aucune estimation — prix d’achat affichés",
+    "st.valued": "{a} sur {b} estimés",
+    "st.items": "Objets", "st.paid": "Payé", "st.wish": "Envies",
+    "st.quarterly": "Valeur de la collection · par trimestre",
+    "st.curveEmpty": "Ajoutez une estimation à un objet et la courbe apparaîtra ici.",
+    "li.title": "Exports",
+    "li.lede": "Les fichiers sont créés dans votre navigateur puis téléchargés. Rien n’est envoyé ailleurs.",
+    "li.pdf.t": "Inventaire d’assurance",
+    "li.pdf.d": "Chaque objet possédé avec photo, quantité, emplacement et valeur — une feuille à remettre à l’assureur.",
+    "li.csv.t": "Tableur (CSV)",
+    "li.csv.d": "Tous les objets, envies comprises. S’ouvre dans Excel ou Numbers sans casser les noms.",
+    "li.zip.t": "Sauvegarde (zip)",
+    "li.zip.d": "Données et toutes les photos, compressées localement. Gardez-la où vous voulez — pas de copie cloud.",
+    "li.empty": "Ajoutez d’abord un objet — il n’y a rien à exporter.",
+    "li.note": "L’inventaire indique clairement que les valeurs sont vos propres estimations, pas des expertises. Aucune app ne peut authentifier ni estimer un objet à votre place.",
+    "se.title": "Réglages",
+    "se.items": "Objets", "se.valued": "Estimés", "se.currency": "Devise",
+    "se.storage": "Stockage", "se.storageVal": "IndexedDB · ce navigateur",
+    "se.account": "Compte", "se.accountVal": "Aucun",
+    "se.whereT": "Où vivent vos données",
+    "se.whereB": "Tout est dans le stockage local de ce navigateur, sur cet appareil. Pas de compte, pas de serveur, pas de mesure d’audience. Les sauvegardes sont manuelles — exportez un zip et rangez-le où vous voulez. La synchronisation automatique n’est pas promise, car elle n’est pas implémentée.",
+    "se.limitT": "Limites assumées",
+    "se.limitB": "Effacer les données du navigateur efface la collection — exportez une sauvegarde avant. Les photos sont compressées à 2048 px, les originaux ne sont pas conservés. La restauration depuis une sauvegarde n’existe pas encore. Safari iOS peut purger les données du site après une longue inactivité.",
+    "se.backup": "Exporter une sauvegarde", "se.backupHint": "À faire avant d’effacer les données ou de changer de téléphone.",
+    "se.lang": "Langue", "se.langAuto": "Suit la langue de votre navigateur · modifiable à tout moment",
+    "se.rate": "Montants affichés en {c} à un taux de référence fixe (1 USD = {r}). Affichage uniquement.",
+    "ex.rate": "Montants convertis à un taux de référence fixe (1 USD = {r}, au {d}). Ce n'est pas un taux de marché.",
+    "dt.notFound": "Objet introuvable", "dt.paid": "Payé", "dt.worth": "Valeur actuelle",
+    "dt.history": "Historique", "dt.details": "Détails",
+    "dt.category": "Catégorie", "dt.qty": "Quantité", "dt.brand": "Marque",
+    "dt.acquired": "Acquis le", "dt.location": "Emplacement", "dt.serial": "Numéro", "dt.note": "Note",
+    "dt.valuations": "Estimations", "dt.addVal": "Enregistrer une estimation",
+    "dt.longPress": "appui long pour supprimer", "dt.delete": "Supprimer l’objet",
+    "fm.new": "Nouvel objet", "fm.name": "Nom", "fm.namePh": "Qu’est-ce que c’est ?",
+    "fm.category": "Catégorie", "fm.photos": "Photos",
+    "fm.photoHint": "À plat · photographié du dessus. La première photo devient la couverture.",
+    "fm.status": "Statut", "fm.owned": "Possédé", "fm.wish": "Envies",
+    "fm.paidEach": "Payé (à l’unité)", "fm.qty": "Quantité", "fm.acquired": "Acquis le",
+    "fm.brand": "Marque", "fm.optional": "Facultatif",
+    "fm.location": "Lieu de rangement", "fm.locationPh": "Étagère A, boîte 3",
+    "fm.serial": "Numéro / édition", "fm.note": "Note",
+    "fm.notePh": "État, provenance, tout ce qui servira plus tard",
+    "fm.valTitle": "Ajouter une estimation", "fm.valuePerItem": "Valeur à l’unité", "fm.date": "Date",
+    "fm.valNote": "Ce sont vos propres estimations à la date indiquée. Pas des expertises.",
+    "tz.processing": "Traitement de {n} photo…", "tz.processingPlural": "Traitement de {n} photos…",
+    "tz.photoFail": "Une photo n’a pas pu être lue",
+    "tz.nameFirst": "Donnez-lui d’abord un nom", "tz.photoRequired": "Au moins une photo",
+    "tz.saved": "Enregistré", "tz.future": "La date ne peut pas être future",
+    "tz.enterAmount": "Saisissez un montant", "tz.pickDate": "Choisissez une date",
+    "tz.valSaved": "Estimation enregistrée", "tz.valRemoved": "Estimation supprimée",
+    "tz.delConfirm": "Supprimer cet objet avec toutes ses photos et estimations ?",
+    "tz.valConfirm": "Supprimer cette estimation ?",
+    "tz.deleted": "Supprimé", "tz.csvDone": "CSV téléchargé",
+    "tz.packing": "Compression…", "tz.printHint": "Ouverture de l’impression — choisissez « Enregistrer en PDF »",
+    "tz.backupDone": "Sauvegarde téléchargée · {n} photos", "tz.limit9": "9 photos maximum",
+    "ex.title": "Inventaire de collection", "ex.meta": "{n} objets · généré le {d} · Vitrine",
+    "ex.paid": "Payé", "ex.estimated": "Valeur estimée", "ex.items": "Objets",
+    "ex.item": "Objet", "ex.qty": "Qté", "ex.location": "Emplacement", "ex.value": "Valeur",
+    "ex.disclaimer": "Les valeurs indiquées sont les estimations du propriétaire, enregistrées dans Vitrine. Ce ne sont ni des expertises, ni des authentifications, ni des évaluations professionnelles. Les prix d’achat sont ceux déclarés par le propriétaire.",
+    "ex.noPhoto": "pas de photo",
+    "stg.title": "Stockage indisponible",
+    "stg.body": "Ce navigateur bloque le stockage local. Safari en navigation privée et certains navigateurs intégrés font cela. Ouvrez directement dans Safari ou Chrome.",
+    "lang.title": "Langue",
+  },
+};
+
+let lang = "en";
+
+function t(key, vars){
+  const table = I18N[lang] || I18N.en;
+  let s = table[key] != null ? table[key] : I18N.en[key] != null ? I18N.en[key] : key;
+  if (vars) for (const k of Object.keys(vars)) s = s.split("{" + k + "}").join(vars[k]);
+  return s;
+}
+function localeOf(){
+  const l = LANGS.find((x) => x.id === lang) || LANGS[0];
+  return l.locale;
+}
+function langShort(){
+  const l = LANGS.find((x) => x.id === lang) || LANGS[0];
+  return l.short;
+}
+
+function normalizeLang(tag){
+  if (!tag) return null;
+  const low = String(tag).toLowerCase();
+  if (low.indexOf("zh") === 0) return "zh-Hans";
+  if (low.indexOf("de") === 0) return "de";
+  if (low.indexOf("fr") === 0) return "fr";
+  if (low.indexOf("en") === 0) return "en";
+  return null;
+}
+
+async function resolveInitialLang(){
+  // 1. 用户手动选过的优先，且永不覆盖
+  let saved = null;
+  try { saved = localStorage.getItem("vitrine.lang"); } catch (e) {}
+  if (saved && I18N[saved]) { lang = saved; return "saved"; }
+
+  // 2. 浏览器语言。不发任何网络请求，也不看 IP。
+  const nav = normalizeLang(navigator.language || (navigator.languages && navigator.languages[0]));
+  if (nav) { lang = nav; return "browser"; }
+
+  // 3. 默认英语
+  lang = "en";
+  return "default";
+}
+
+function setLang(id, remember){
+  if (!I18N[id]) id = "en";
+  lang = id;
+  if (remember !== false) {
+    try { localStorage.setItem("vitrine.lang", id); } catch (e) {}
+  }
+  document.documentElement.lang = id === "zh-Hans" ? "zh-CN" : id;
+  render();
+}
+
+function openLangSheet(){
+  $("#sheet-root").innerHTML =
+    '<div class="sheet" role="dialog" aria-modal="true">' +
+      '<div class="sheet-hd"><button data-act="close-sheet">' + t("c.cancel") + "</button><b>" + t("lang.title") + "</b><span style='width:56px'></span></div>" +
+      '<div class="sheet-body" style="padding-top:8px">' +
+        LANGS.map((l) =>
+          '<button class="row" data-act="set-lang" data-lang="' + l.id + '" style="align-items:center">' +
+            '<div class="rb"><div class="rt"><b>' + l.label + "</b><small>" + (l.id === lang ? "✓" : "") + "</small></div></div>" +
+          "</button>",
+        ).join("") +
+        '<p class="foot-note" style="margin-top:16px">' + t("se.langAuto") + "</p>" +
+      "</div>" +
+    "</div>";
+  document.body.style.overflow = "hidden";
+}
+
+/* ---------------- IndexedDB ---------------- */
+let dbPromise = null;
+function openDB(){
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("items")) db.createObjectStore("items", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("photos")) {
+        const s = db.createObjectStore("photos", { keyPath: "id" });
+        s.createIndex("itemId", "itemId");
+      }
+      if (!db.objectStoreNames.contains("valuations")) {
+        const s = db.createObjectStore("valuations", { keyPath: "id" });
+        s.createIndex("itemId", "itemId");
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return dbPromise;
+}
+
+function txStore(name, mode){
+  return openDB().then((db) => db.transaction(name, mode).objectStore(name));
+}
+function reqAsPromise(req){
+  return new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function dbGetAll(name){
+  return reqAsPromise((await txStore(name, "readonly")).getAll());
+}
+async function dbPut(name, value){
+  return reqAsPromise((await txStore(name, "readwrite")).put(value));
+}
+async function dbDelete(name, key){
+  return reqAsPromise((await txStore(name, "readwrite")).delete(key));
+}
+async function dbGetByName(name, index, key){
+  const store = await txStore(name, "readonly");
+  return reqAsPromise(store.index(index).getAll(key));
+}
+async function dbClearAll(){
+  for (const n of ["items", "photos", "valuations"]) {
+    await reqAsPromise((await txStore(n, "readwrite")).clear());
+  }
+}
+
+/* ---------------- 小工具 ---------------- */
+const uid = () =>
+  Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9);
+
+const $ = (sel, root) => (root || document).querySelector(sel);
+const esc = (s) =>
+  String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function toast(msg){
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2200);
+}
+
+/* 金额一律存「最小货币单位」整数（分），永不存浮点 */
+function formatMoney(minor, currency){
+  const cur = currency || "USD";
+  const n = (minor || 0) / 100;
+  try {
+    return new Intl.NumberFormat(localeOf(), { style: "currency", currency: cur, maximumFractionDigits: 2 }).format(n);
+  } catch {
+    return cur + " " + n.toFixed(2);
+  }
+}
+function formatSignedMoney(minor, currency){
+  const sign = minor > 0 ? "+" : minor < 0 ? "−" : "";
+  return sign + formatMoney(Math.abs(minor), currency);
+}
+/* 每种语言对应一种展示货币。库里的钱永远以 USD「分」为单位，换汇只发生在显示层 */
+const RATES = { USD: 1, CNY: 7.12, EUR: 0.92 };
+const RATE_ASOF = "2026-11";
+const CURRENCY_BY_LANG = { "en": "USD", "zh-Hans": "CNY", "de": "EUR", "fr": "EUR" };
+
+function currencyOf(){
+  return CURRENCY_BY_LANG[lang] || "USD";
+}
+function rateOf(){
+  return RATES[currencyOf()] || 1;
+}
+/** USD 分 → 当前展示货币的分；null 原样返回，避免把"没填"变成 0 */
+function toDisplayMinor(usdMinor){
+  if (usdMinor == null) return null;
+  return Math.round(usdMinor * rateOf());
+}
+function formatDisplay(usdMinor){
+  if (usdMinor == null) return "—";
+  return formatMoney(toDisplayMinor(usdMinor), currencyOf());
+}
+function formatSignedDisplay(usdMinor){
+  if (usdMinor == null) return "—";
+  const sign = usdMinor > 0 ? "+" : usdMinor < 0 ? "−" : "";
+  return sign + formatDisplay(Math.abs(usdMinor));
+}
+/** 用户按当前展示货币输入 → 存回 USD 分 */
+function parseMoneyToUsd(text){
+  const minor = parseMoney(text);
+  if (minor == null) return null;
+  return Math.round(minor / rateOf());
+}
+
+function percentChange(now, then){
+  if (!then) return null;
+  return Math.round(((now - then) / then) * 1000) / 10;
+}
+function formatDate(ts){
+  const d = new Date(ts);
+  return d.toLocaleDateString(localeOf(), { year: "numeric", month: "short", day: "numeric" });
+}
+function toDateInput(ts){
+  const d = new Date(ts);
+  const p = (n) => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+}
+function parseMoney(text){
+  const cleaned = String(text).replace(/[^0-9.]/g, "");
+  if (!cleaned) return null;
+  const n = Number(cleaned);
+  if (!isFinite(n)) return null;
+  return Math.round(n * 100);
+}
+function stamp(){
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return "" + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes());
+}
+
+/* ---------------- 曲线（与原生版同一套口径） ---------------- */
+/* 每件藏品是一条阶梯函数：起点 = 入手价，之后每条估值抬一次。
+   整柜曲线 = 所有事件时间点去重排序后，对每个阶梯函数求和。
+   数量在这里乘掉，图上永远显示「这件东西总共值多少」；wishlist 不进曲线。 */
+function itemSeries(item, valuations){
+  const qty = item.quantity || 1;
+  const events = [];
+  if (item.acquiredPrice != null) {
+    events.push({ t: item.acquiredDate != null ? item.acquiredDate : item.createdAt, v: item.acquiredPrice * qty });
+  }
+  for (const v of valuations) events.push({ t: v.valuedAt, v: v.value * qty });
+
+  const byTime = new Map();
+  for (const e of events) byTime.set(e.t, e.v); // 同一时间点取最后一条
+  const points = Array.from(byTime, ([t, v]) => ({ t, v })).sort((a, b) => a.t - b.t);
+  return points;
+}
+
+function portfolioSeries(items, valuationsByItem){
+  const owned = items.filter((i) => i.status === "owned");
+  if (!owned.length) return [];
+  const steps = owned.map((i) => itemSeries(i, valuationsByItem[i.id] || []));
+  const allTimes = new Set();
+  for (const s of steps) for (const p of s) allTimes.add(p.t);
+  const times = Array.from(allTimes).sort((a, b) => a - b);
+  return times.map((t) => {
+    let sum = 0;
+    for (const s of steps) {
+      let cur = 0;
+      for (const p of s) { if (p.t <= t) cur = p.v; else break; }
+      sum += cur;
+    }
+    return { t, v: sum };
+  });
+}
+
+/* 按自然季度聚合：每季取最后一个点。台阶线在整柜尺度上像故障，磨平后可读。 */
+function quarterlySeries(points){
+  if (points.length < 2) return points;
+  const map = new Map();
+  for (const p of points) {
+    const d = new Date(p.t);
+    map.set(d.getFullYear() + "Q" + (Math.floor(d.getMonth() / 3) + 1), p);
+  }
+  return Array.from(map.values()).sort((a, b) => a.t - b.t);
+}
+
+/* ---------------- 派生值 ---------------- */
+function latestValuation(item, valuations){
+  if (!valuations || !valuations.length) return null;
+  return valuations.slice().sort((a, b) => b.valuedAt - a.valuedAt)[0];
+}
+function itemWorth(item, valuations){
+  const qty = item.quantity || 1;
+  const lv = latestValuation(item, valuations || []);
+  const unit = lv ? lv.value : item.acquiredPrice;
+  return unit == null ? null : unit * qty;
+}
+function computeStats(items, valsByItem){
+  const owned = items.filter((i) => i.status === "owned");
+  let paid = 0, worth = 0, valued = 0;
+  for (const i of owned){
+    const qty = i.quantity || 1;
+    if (i.acquiredPrice != null) paid += i.acquiredPrice * qty;
+    const w = itemWorth(i, valsByItem[i.id] || []);
+    if (w != null) worth += w;
+    if (latestValuation(i, valsByItem[i.id] || [])) valued += 1;
+  }
+  return {
+    ownedCount: owned.length,
+    wishCount: items.filter((i) => i.status === "wishlist").length,
+    totalInvested: paid,
+    currentValue: worth,
+    valuedCount: valued,
+  };
+}
+
+/* ---------------- 状态 ---------------- */
+const state = {
+  items: [],
+  photosByItem: {},
+  valsByItem: {},
+  urlCache: new Map(), // photoId -> objectURL
+  query: "",
+  categoryId: null,
+  sort: "recent", // recent | valueDesc | valueAsc | title
+  view: "collection",
+  detailId: null,
+  draft: null,
+};
+
+async function loadAll(){
+  const [items, photos, vals] = await Promise.all([
+    dbGetAll("items"),
+    dbGetAll("photos"),
+    dbGetAll("valuations"),
+  ]);
+  state.items = items;
+  state.photosByItem = {};
+  for (const p of photos) (state.photosByItem[p.itemId] = state.photosByItem[p.itemId] || []).push(p);
+  for (const k of Object.keys(state.photosByItem)) {
+    state.photosByItem[k].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  }
+  state.valsByItem = {};
+  for (const v of vals) (state.valsByItem[v.itemId] = state.valsByItem[v.itemId] || []).push(v);
+  for (const k of Object.keys(state.valsByItem)) {
+    state.valsByItem[k].sort((a, b) => a.valuedAt - b.valuedAt);
+  }
+}
+
+function photoURL(photo){
+  if (!photo) return null;
+  if (state.urlCache.has(photo.id)) return state.urlCache.get(photo.id);
+  const url = URL.createObjectURL(photo.thumb || photo.blob);
+  state.urlCache.set(photo.id, url);
+  return url;
+}
+function fullPhotoURL(photo){
+  if (!photo) return null;
+  const key = "full:" + photo.id;
+  if (state.urlCache.has(key)) return state.urlCache.get(key);
+  const url = URL.createObjectURL(photo.blob);
+  state.urlCache.set(key, url);
+  return url;
+}
+function coverPhoto(item){
+  const list = state.photosByItem[item.id] || [];
+  if (!list.length) return null;
+  return list.find((p) => p.id === item.coverPhotoId) || list[0];
+}
+
+/* =============================================================
+   视图渲染
+   ============================================================= */
+
+const TABS = [
+  { id: "collection", label: "Collection", icon: "grid" },
+  { id: "stats", label: "Stats", icon: "chart" },
+  { id: "lists", label: "Lists", icon: "doc" },
+  { id: "settings", label: "Settings", icon: "gear" },
+];
+
+const SORT_LABELS = { recent: "Recent", valueDesc: "Value ↓", valueAsc: "Value ↑", title: "A–Z" };
+const SORT_ORDER = ["recent", "valueDesc", "valueAsc", "title"];
+
+function renderTabs(){
+  $(".tabbar").style.display = state.view === "detail" ? "none" : "";
+  $("#tabs").innerHTML = TABS.map(
+    (tab) =>
+      '<button class="tab" role="tab" aria-selected="' + (state.view === tab.id ? "true" : "false") +
+      '" data-act="nav" data-view="' + tab.id + '">' + icon(tab.icon) + "<span>" + t("nav." + tab.id) + "</span></button>",
+  ).join("");
+}
+
+function render(){
+  renderTabs();
+  const view = $("#view");
+  if (state.view === "stats") view.innerHTML = viewStats();
+  else if (state.view === "lists") view.innerHTML = viewLists();
+  else if (state.view === "settings") view.innerHTML = viewSettings();
+  else if (state.view === "detail") view.innerHTML = viewDetail(state.detailId);
+  else view.innerHTML = viewCollection();
+  if (state.view === "collection") {
+    const input = $("#search-input");
+    if (input) { input.value = state.query; }
+  }
+}
+
+/* ---------------- Collection ---------------- */
+function visibleItems(){
+  const q = state.query.trim().toLowerCase();
+  let list = state.items.slice();
+  if (q) {
+    list = list.filter((i) =>
+      [i.title, i.brand, i.note].filter(Boolean).join(" ").toLowerCase().includes(q));
+  }
+  if (state.categoryId) list = list.filter((i) => i.categoryId === state.categoryId);
+
+  const worthOf = (i) => {
+    const w = itemWorth(i, state.valsByItem[i.id] || []);
+    return w == null ? -1 : w;
+  };
+  switch (state.sort) {
+    case "valueDesc": list.sort((a, b) => worthOf(b) - worthOf(a)); break;
+    case "valueAsc": list.sort((a, b) => worthOf(a) - worthOf(b)); break;
+    case "title": list.sort((a, b) => String(a.title).localeCompare(String(b.title))); break;
+    default: list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  }
+  return list;
+}
+
+function viewCollection(){
+  const stats = computeStats(state.items, state.valsByItem);
+  const rows = visibleItems();
+  const filtering = state.query.trim().length > 0 || state.categoryId !== null;
+  const cur = state.items[0] ? state.items[0].currency : "USD";
+  const countText = stats.ownedCount === 1
+    ? t("col.count1", { n: stats.ownedCount })
+    : t("col.count", { n: stats.ownedCount });
+
+  const head =
+    '<div class="wrap"><div class="hd">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">' +
+        "<div style=\"min-width:0\"><h1>" + t("col.title") + "</h1>" +
+          '<p class="meta">' + countText +
+          (stats.currentValue > 0 ? t("col.worth", { v: formatDisplay(stats.currentValue) }) : "") + "</p></div>" +
+        '<button class="sortbtn" data-act="open-lang" aria-label="' + t("se.lang") + '" style="margin-top:4px;font-weight:600">' +
+          langShort() + "</button>" +
+      "</div>" +
+      '<div class="tools">' +
+        '<div class="search">' + icon("search") +
+          '<input id="search-input" type="search" placeholder="' + t("col.search") + '" autocomplete="off" />' +
+        "</div>" +
+        '<button class="sortbtn" data-act="cycle-sort">' + icon("sort") + "<span>" + t("sort." + state.sort) + "</span></button>" +
+      "</div>" +
+      '<div class="chips">' +
+        '<button class="chip" data-act="pick-cat" data-cat="" aria-pressed="' + (state.categoryId === null) + '">' + t("c.all") + "</button>" +
+        CATEGORIES.map((c) =>
+          '<button class="chip" data-act="pick-cat" data-cat="' + c.id + '" aria-pressed="' + (state.categoryId === c.id) + '">' + catName(c.id) + "</button>",
+        ).join("") +
+      "</div>" +
+    "</div>";
+
+  if (!rows.length && filtering) {
+    return head + '<div class="empty">' +
+      icon("search", "big") +
+      "<h2>" + t("col.noMatches") + "</h2><p>" + t("col.noMatchesBody") + "</p>" +
+      '<button class="btn ghost" data-act="clear-filters">' + t("col.clear") + "</button></div></div>";
+  }
+  if (!rows.length) {
+    return head + '<div class="empty">' +
+      icon("frame", "big") +
+      "<h2>" + t("col.startTitle") + "</h2>" +
+      "<p>" + t("col.startBody") + "</p>" +
+      '<button class="btn" data-act="new-item">' + icon("camera") + t("col.addFirst") + "</button></div></div>";
+  }
+
+  const cards = rows.map((i) => {
+    const cover = coverPhoto(i);
+    const worth = itemWorth(i, state.valsByItem[i.id] || []);
+    return '<button class="card" data-act="open-item" data-id="' + i.id + '">' +
+      '<div class="cover">' +
+        (cover ? '<img src="' + photoURL(cover) + '" alt="" loading="lazy" />' : icon(catIcon(i.categoryId))) +
+        (i.status === "wishlist" ? '<div class="wish">' + t("col.wish") + "</div>" : "") +
+      "</div>" +
+      '<div class="card-body">' +
+        '<div class="card-title">' + esc(itemTitle(i)) + "</div>" +
+        '<div class="card-foot"><span class="card-cat">' + esc(catName(i.categoryId)) + "</span>" +
+        '<span class="card-val num">' + (worth == null ? "—" : formatDisplay(worth)) + "</span></div>" +
+      "</div></button>";
+  }).join("");
+
+    const sampleBanner = state.items.some((i) => i.id === SAMPLE_ID)
+    ? '<div class="ob"><div><b>' + t("ob.title") + '</b><p>' + t("ob.body") + '</p></div>' +
+        '<div class="ob-act">' +
+          '<button class="btn ghost" data-act="dismiss-sample">' + t("ob.remove") + '</button>' +
+          '<button class="btn" data-act="open-item" data-id="' + SAMPLE_ID + '">' + t("ob.open") + '</button>' +
+        "</div></div>"
+    : "";
+
+  return head + sampleBanner + '<div class="grid">' + cards + "</div>" +
+    '<div style="height:20px"></div>' +
+    '<button class="btn" data-act="new-item">' + icon("plus") + t("col.addItem") + "</button>" +
+    "</div>";
+}
+
+/* ---------------- Stats ---------------- */
+function sparklineSVG(points, opts){
+  const o = opts || {};
+  if (points.length < 2) return "";
+  const t0 = points[0].t, t1 = points[points.length - 1].t;
+  const vMin = Math.min.apply(null, points.map((p) => p.v));
+  const vMax = Math.max.apply(null, points.map((p) => p.v));
+  const span = t1 - t0 || 1;
+  const vSpan = vMax - vMin || 1;
+  const X = (time) => ((time - t0) / span) * 100;
+  const Y = (v) => 52 - ((v - vMin) / vSpan) * 44;
+  const d = points.map((p, i) => (i ? "L" : "M") + X(p.t).toFixed(2) + " " + Y(p.v).toFixed(2)).join(" ");
+  const areaId = "fill-" + Math.random().toString(36).slice(2, 8);
+  const color = o.color || "currentColor";
+
+  return '<svg viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">' +
+    '<defs><linearGradient id="' + areaId + '" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="' + color + '" stop-opacity=".22"/>' +
+      '<stop offset="100%" stop-color="' + color + '" stop-opacity="0"/>' +
+    "</linearGradient></defs>" +
+    '<path d="' + d + ' L100 60 L0 60 Z" fill="url(#' + areaId + ')" />' +
+    '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" />' +
+    "</svg>";
+}
+
+function viewStats(){
+  const s = computeStats(state.items, state.valsByItem);
+  const cur = state.items[0] ? state.items[0].currency : "USD";
+  const pnl = s.currentValue - s.totalInvested;
+  const pct = percentChange(s.currentValue, s.totalInvested);
+
+  const raw = portfolioSeries(state.items, state.valsByItem);
+  const bucketed = quarterlySeries(raw);
+  const series = bucketed.length >= 2 ? bucketed : raw;
+  const seriesDelta = series.length >= 2 ? series[series.length - 1].v - series[0].v : 0;
+
+  const byCat = {};
+  for (const i of state.items) {
+    if (i.status !== "owned") continue;
+    const w = itemWorth(i, state.valsByItem[i.id] || []) || 0;
+    byCat[i.categoryId] = (byCat[i.categoryId] || 0) + w;
+  }
+  const catRows = Object.keys(byCat).map((k) => ({ k, v: byCat[k] })).sort((a, b) => b.v - a.v);
+  const total = catRows.reduce((n, r) => n + r.v, 0) || 1;
+
+  return '<div class="wrap"><div class="hd"><h1>' + t("st.title") + "</h1></div>" +
+
+    '<div class="hero"><div class="lab">' + t("st.worthNow") + "</div>" +
+      '<div class="val num">' + formatDisplay(s.currentValue) + "</div>" +
+      (s.totalInvested > 0
+        ? '<div class="delta"><strong class="num" style="color:' + (pnl >= 0 ? "var(--pos)" : "var(--neg)") + '">' +
+            formatSignedDisplay(pnl) + "</strong>" +
+            '<span style="color:' + (pnl >= 0 ? "var(--pos)" : "var(--neg)") + '">' +
+            (pct == null ? "" : t("st.vsPaid", { p: pct })) + "</span></div>"
+        : '<div class="delta" style="color:var(--t2)">' + t("st.addPaid") + "</div>") +
+      '<div class="note">' + (s.valuedCount === 0
+        ? t("st.nothing")
+        : t("st.valued", { a: s.valuedCount, b: s.ownedCount })) + "</div>" +
+    "</div>" +
+
+    '<div class="tiles">' +
+      '<div class="tile"><div class="lab">' + t("st.items") + '</div><div class="val num">' + s.ownedCount + "</div></div>" +
+      '<div class="tile"><div class="lab">' + t("st.paid") + '</div><div class="val num" style="font-size:14px">' + formatDisplay(s.totalInvested) + "</div></div>" +
+      '<div class="tile"><div class="lab">' + t("st.wish") + '</div><div class="val num">' + s.wishCount + "</div></div>" +
+    "</div>" +
+
+    (series.length >= 2
+      ? '<div class="chart"><div class="chart-hd"><span class="lab">' + t("st.quarterly") + '</span>' +
+          '<strong class="num">' + formatSignedDisplay(seriesDelta) + "</strong></div>" +
+          sparklineSVG(series, { color: seriesDelta >= 0 ? "#1E8E55" : "#C0392B" }) +
+          '<div class="chart-ft"><span>' + formatDate(series[0].t) + "</span><span>" + formatDate(series[series.length - 1].t) + "</span></div></div>"
+      : '<div class="chart"><div class="chart-hd"><span class="lab">' + t("st.quarterly") + '</span></div>' +
+          '<div style="color:var(--t3);font-size:13px;margin-top:10px;line-height:19px">' + t("st.curveEmpty") + "</div></div>") +
+
+    (catRows.length
+      ? '<div class="bars">' + catRows.map((r) =>
+          '<div class="bar-row"><div class="bar-top"><span>' + esc(catName(r.k)) + "</span>" +
+          '<span class="num" style="color:var(--t3)">' + Math.round((r.v / total) * 100) + "%</span></div>" +
+          '<div class="bar-track"><div class="bar-fill" style="width:' + ((r.v / total) * 100).toFixed(1) + '%"></div></div></div>',
+        ).join("") + "</div>"
+      : "") +
+    "</div>";
+}
+
+/* ---------------- Lists ---------------- */
+function viewLists(){
+  const owned = state.items.filter((i) => i.status === "owned");
+  const rows = [
+    { act: "exp-pdf", icn: "doc", title: t("li.pdf.t"), desc: t("li.pdf.d"), cta: t("col.count", { n: owned.length }) },
+    { act: "exp-csv", icn: "table", title: t("li.csv.t"), desc: t("li.csv.d"), cta: t("col.count", { n: state.items.length }) },
+    { act: "exp-zip", icn: "zip", title: t("li.zip.t"), desc: t("li.zip.d"), cta: "zip" },
+  ];
+
+  return '<div class="wrap"><div class="hd"><h1>' + t("li.title") + "</h1>" +
+    '<p class="meta">' + t("li.lede") + "</p></div>" +
+    rows.map((r) =>
+      '<button class="row" data-act="' + r.act + '"' + (state.items.length ? "" : " disabled") + ">" +
+        '<div class="ri">' + icon(r.icn) + "</div>" +
+        '<div class="rb"><div class="rt"><b>' + r.title + "</b><small>" + r.cta + "</small></div>" +
+        '<div class="rd">' + r.desc + "</div></div>" +
+      "</button>",
+    ).join("") +
+    (state.items.length ? "" : '<p class="foot-note">' + t("li.empty") + "</p>") +
+    '<p class="foot-note">' + t("li.note") + "</p></div>";
+}
+
+/* ---------------- Settings ---------------- */
+function viewSettings(){
+  const s = computeStats(state.items, state.valsByItem);
+  return '<div class="wrap"><div class="hd"><h1>' + t("se.title") + "</h1></div>" +
+    '<div class="kv">' +
+      '<div class="kv-row"><span>' + t("se.items") + '</span><span class="num">' + state.items.length + "</span></div>" +
+      '<div class="kv-row"><span>' + t("se.valued") + '</span><span class="num">' + s.valuedCount + "</span></div>" +
+      '<div class="kv-row"><span>' + t("se.currency") + "</span><span>" + currencyOf() + "</span></div>" +
+    '<p class="foot-note" style="margin-top:8px">' + t("se.rate", { r: RATES[currencyOf()], c: currencyOf() }) + "</p>" +
+      '<div class="kv-row"><span>' + t("se.storage") + "</span><span>" + t("se.storageVal") + "</span></div>" +
+      '<div class="kv-row"><span>' + t("se.account") + "</span><span>" + t("se.accountVal") + "</span></div>" +
+    "</div>" +
+
+    '<button class="row" data-act="open-lang" style="margin-top:10px">' +
+      '<div class="ri">' + icon("gear") + "</div>" +
+      '<div class="rb"><div class="rt"><b>' + t("se.lang") + "</b><small>" + langShort() + "</small></div>" +
+      '<div class="rd">' + t("se.langAuto") + "</div></div>" +
+    "</button>" +
+
+    '<p class="sec-title">' + t("se.whereT") + "</p>" +
+    '<p style="font-size:14px;line-height:21px;color:var(--t2);margin:0">' + t("se.whereB") + "</p>" +
+    '<p class="sec-title">' + t("se.limitT") + "</p>" +
+    '<p style="font-size:14px;line-height:21px;color:var(--t2);margin:0">' + t("se.limitB") + "</p>" +
+    '<div style="height:18px"></div>' +
+    '<button class="row" data-act="exp-zip"><div class="ri">' + icon("zip") + "</div>" +
+    '<div class="rb"><div class="rt"><b>' + t("se.backup") + "</b><small>zip</small></div>" +
+    '<div class="rd">' + t("se.backupHint") + "</div></div></button>" +
+    "</div>";
+}
+
+/* ---------------- Detail ---------------- */
+function viewDetail(id){
+  const item = state.items.find((i) => i.id === id);
+  if (!item) return '<div class="wrap"><div class="empty"><h2>' + t("dt.notFound") + "</h2>" +
+    '<button class="btn ghost" data-act="nav" data-view="collection">' + t("c.back") + "</button></div></div>";
+
+  const photos = state.photosByItem[id] || [];
+  const vals = state.valsByItem[id] || [];
+  const cur = item.currency || "USD";
+  const worth = itemWorth(item, vals);
+  const series = itemSeries(item, vals);
+  const paid = item.acquiredPrice == null ? null : item.acquiredPrice * (item.quantity || 1);
+  const delta = worth != null && paid != null ? worth - paid : null;
+
+  const cover = photos.find((p) => p.id === item.coverPhotoId) || photos[0] || null;
+  const heroImg = cover ? fullPhotoURL(cover) : null;
+
+  const kvRows = [
+    [t("dt.category"), esc(catName(item.categoryId))],
+    [t("dt.qty"), String(item.quantity || 1)],
+    [t("dt.brand"), item.brand ? esc(item.brand) : "—"],
+    [t("dt.acquired"), item.acquiredDate ? formatDate(item.acquiredDate) : "—"],
+    [t("dt.location"), item.storageLocation ? esc(item.storageLocation) : "—"],
+    [t("dt.serial"), item.serialNo ? esc(item.serialNo) : "—"],
+    [t("dt.note"), item.note ? esc(item.note) : "—"],
+  ];
+
+  const histRows = vals.slice().reverse().map((v) =>
+    '<div class="hist-item" data-act="del-val" data-id="' + v.id + '" data-item="' + item.id + '">' +
+      '<div><div class="hm num">' + formatDisplay(v.value) + "</div>" +
+      "<small>" + formatDate(v.valuedAt) + (v.note ? " · " + esc(v.note) : "") + "</small></div>" +
+      '<small style="color:var(--t3)">' + t("dt.longPress") + "</small></div>",
+  ).join("");
+
+  return '<div class="wrap">' +
+    '<div class="hd" style="display:flex;align-items:center;gap:8px;padding-top:14px">' +
+      '<button class="sortbtn" data-act="nav" data-view="collection" style="padding:0 10px" aria-label="' + t("c.back") + '">' + icon("back") + "</button>" +
+      '<div style="min-width:0"><h1 style="font-size:22px;line-height:27px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(itemTitle(item)) + "</h1>" +
+      '<p class="meta" style="margin-top:2px">' + esc(catName(item.categoryId)) + (item.status === "wishlist" ? " · " + t("fm.wish") : "") + "</p></div>" +
+    "</div>" +
+
+    '<div class="dt-hero">' + (heroImg ? '<img src="' + heroImg + '" alt="" />' : icon(catIcon(item.categoryId))) + "</div>" +
+    (photos.length > 1
+      ? '<div class="dt-thumbs">' + photos.map((p) =>
+          '<img src="' + photoURL(p) + '" alt="" data-act="swap-hero" data-photo="' + p.id + '"' +
+          (p.id === (cover && cover.id) ? ' aria-current="true"' : "") + " />",
+        ).join("") + "</div>"
+      : "") +
+
+    '<div class="dt-price">' +
+      '<div><div class="lab">' + t("dt.paid") + '</div><div class="val num">' + (paid == null ? "—" : formatDisplay(paid)) + "</div></div>" +
+      '<div><div class="lab">' + t("dt.worth") + '</div><div class="val num">' + (worth == null ? "—" : formatDisplay(worth)) + "</div>" +
+        (delta == null ? "" : '<div style="font-size:13px;color:' + (delta >= 0 ? "var(--pos)" : "var(--neg)") + '">' + formatSignedDisplay(delta) + "</div>") +
+      "</div>" +
+    "</div>" +
+
+    (series.length >= 2
+      ? '<div class="chart"><div class="chart-hd"><span class="lab">' + t("dt.history") + '</span></div>' +
+        sparklineSVG(series, { color: delta == null || delta >= 0 ? "#1E8E55" : "#C0392B" }) + "</div>"
+      : "") +
+
+    '<p class="sec-title">' + t("dt.details") + '</p><div class="kv">' +
+      kvRows.map((r) => '<div class="kv-row"><span>' + r[0] + "</span><span>" + r[1] + "</span></div>").join("") +
+    "</div>" +
+
+    '<p class="sec-title">' + t("dt.valuations") + "</p>" +
+    '<button class="btn" data-act="add-val" data-id="' + item.id + '" style="width:100%">' + icon("plus") + t("dt.addVal") + "</button>" +
+    (histRows ? '<div class="hist" style="margin-top:10px">' + histRows + "</div>" : "") +
+
+    '<div style="height:22px"></div>' +
+    '<button class="btn ghost" data-act="delete-item" data-id="' + item.id + '" style="width:100%;color:var(--neg);border-color:var(--border)">' +
+      icon("trash") + t("dt.delete") + "</button>" +
+    '<div style="height:28px"></div></div>';
+}
+
+/* =============================================================
+   照片：浏览器原生 input[type=file] 拍照/选图 → canvas 压缩
+   ============================================================= */
+function loadImageEl(blob){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => resolve({ img, url });
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Cannot read image")); };
+    img.src = url;
+  });
+}
+
+function canvasToBlob(canvas, quality){
+  return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/jpeg", quality));
+}
+
+async function shrinkBlob(blob, maxEdge, quality){
+  const { img, url } = await loadImageEl(blob);
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const scale = Math.min(1, maxEdge / Math.max(w, h)); // 小于目标长边就不重编码
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(w * scale);
+  canvas.height = Math.round(h * scale);
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  URL.revokeObjectURL(url);
+  if (scale === 1 && blob.type === "image/jpeg" && blob.size < 900 * 1024) return blob;
+  return canvasToBlob(canvas, quality);
+}
+
+/** 主图长边 2048 / 0.7，缩略图 400 / 0.6 —— 与原生版同一套参数 */
+async function makePhoto(file, itemId){
+  const main = await shrinkBlob(file, MAX_EDGE, MAIN_Q);
+  const thumb = await shrinkBlob(main, THUMB_EDGE, THUMB_Q); // 从已压缩的主图生成，更快也更省内存
+  return { id: uid(), itemId, blob: main, thumb, createdAt: Date.now() };
+}
+
+/* =============================================================
+   新建 / 估值表单
+   ============================================================= */
+function closeSheet(){
+  $("#sheet-root").innerHTML = "";
+  state.draft = null;
+  document.body.style.overflow = "";
+}
+
+function openNewSheet(){
+  const draft = { id: uid(), photos: [], createdAt: Date.now(), categoryId: CATEGORIES[0].id, status: "owned" };
+  state.draft = draft;
+
+  $("#sheet-root").innerHTML =
+    '<div class="sheet" role="dialog" aria-modal="true">' +
+      '<div class="sheet-hd"><button data-act="close-sheet">' + t("c.cancel") + "</button><b>" + t("fm.new") + "</b>" +
+      '<button data-act="save-item" style="font-weight:600;color:var(--text)">' + t("c.save") + "</button></div>" +
+      '<div class="sheet-body form">' +
+        '<div class="field"><label>' + t("fm.name") + '</label><input id="f-title" type="text" placeholder="' + t("fm.namePh") + '" autocomplete="off" /></div>' +
+        '<div class="field"><label>' + t("fm.category") + '</label><div class="chips" style="padding:0">' +
+          CATEGORIES.map((c, i) => '<button class="chip" data-act="pick-cat-new" data-cat="' + c.id + '" aria-pressed="' + (i === 0) + '">' + catName(c.id) + "</button>").join("") +
+        "</div></div>" +
+        '<div class="field"><label>' + t("fm.photos") + '</label><div class="photos" id="draft-photos"></div>' +
+          '<p style="font-size:12px;color:var(--t3);margin:8px 0 0;line-height:17px">' + t("fm.photoHint") + "</p></div>" +
+        '<div class="field"><label>' + t("fm.status") + '</label><div class="seg">' +
+          '<button data-act="set-status" data-status="owned" aria-pressed="true">' + t("fm.owned") + "</button>" +
+          '<button data-act="set-status" data-status="wishlist" aria-pressed="false">' + t("fm.wish") + "</button>" +
+        "</div></div>" +
+        '<div class="inline-2">' +
+          '<div class="field"><label>' + t("fm.paidEach") + " · " + currencyOf() + '</label><input id="f-price" type="text" inputmode="decimal" placeholder="0.00" /></div>' +
+          '<div class="field"><label>' + t("fm.qty") + '</label><input id="f-qty" type="number" min="1" step="1" value="1" /></div>' +
+        "</div>" +
+        '<div class="field"><label>' + t("fm.acquired") + '</label><input id="f-date" type="date" value="' + toDateInput(Date.now()) + '" /></div>' +
+        '<div class="field"><label>' + t("fm.brand") + '</label><input id="f-brand" type="text" placeholder="' + t("fm.optional") + '" autocomplete="off" /></div>' +
+        '<div class="field"><label>' + t("fm.location") + '</label><input id="f-loc" type="text" placeholder="' + t("fm.locationPh") + '" autocomplete="off" /></div>' +
+        '<div class="field"><label>' + t("fm.serial") + '</label><input id="f-sn" type="text" placeholder="' + t("fm.optional") + '" autocomplete="off" /></div>' +
+        '<div class="field"><label>' + t("fm.note") + '</label><textarea id="f-note" placeholder="' + t("fm.notePh") + '"></textarea></div>' +
+      "</div>" +
+    "</div>";
+  document.body.style.overflow = "hidden";
+  renderDraftPhotos();
+  setTimeout(() => { const el = $("#f-title"); if (el) el.focus(); }, 240);
+}
+
+function renderDraftPhotos(){
+  const box = $("#draft-photos");
+  if (!box || !state.draft) return;
+  const photos = state.draft.photos;
+  box.innerHTML =
+    photos.map((p) =>
+      '<div class="ph"><img src="' + p.preview + '" alt="" />' +
+      '<button class="del" data-act="del-draft-photo" data-id="' + p.id + '" aria-label="Remove">×</button></div>',
+    ).join("") +
+    (photos.length < 9
+      ? '<button class="ph add" data-act="take-photo" aria-label="Camera">' + icon("camera") + "</button>" +
+        '<button class="ph add" data-act="pick-photo" aria-label="Library">' + icon("plus") + "</button>"
+      : "");
+}
+
+async function addFilesToDraft(files){
+  if (!state.draft) return;
+  const list = Array.from(files || []).slice(0, 9 - state.draft.photos.length);
+  if (!list.length) { toast(t("tz.limit9")); return; }
+  toast(list.length === 1 ? t("tz.processing", { n: list.length }) : t("tz.processingPlural", { n: list.length }));
+  for (const f of list) {
+    try {
+      const photo = await makePhoto(f, state.draft.id);
+      photo.preview = URL.createObjectURL(photo.thumb);
+      state.draft.photos.push(photo);
+    } catch (e) {
+      toast(t("tz.photoFail"));
+    }
+  }
+  renderDraftPhotos();
+}
+
+async function saveDraft(){
+  const draft = state.draft;
+  if (!draft) return;
+  const title = (($("#f-title") || {}).value || "").trim();
+  if (!title) { toast(t("tz.nameFirst")); return; }
+  if (!draft.photos.length) { toast(t("tz.photoRequired")); return; }
+
+  const item = {
+    id: draft.id,
+    title: title,
+    categoryId: draft.categoryId,
+    brand: $("#f-brand").value.trim() || null,
+    acquiredPrice: parseMoneyToUsd($("#f-price").value),
+    acquiredDate: new Date((($("#f-date") || {}).value || toDateInput(Date.now())) + "T12:00:00").getTime(),
+    quantity: Math.max(1, parseInt($("#f-qty").value, 10) || 1),
+    status: draft.status,
+    currency: "USD",
+    storageLocation: $("#f-loc").value.trim() || null,
+    serialNo: $("#f-sn").value.trim() || null,
+    note: $("#f-note").value.trim() || null,
+    coverPhotoId: draft.photos[0].id, // 首张自动当封面
+    createdAt: draft.createdAt,
+    updatedAt: Date.now(),
+  };
+
+  for (const p of draft.photos) {
+    const { preview, ...row } = p;
+    await dbPut("photos", row);
+  }
+  await dbPut("items", item);
+
+  closeSheet();
+  await refreshAndRender();
+  toast(t("tz.saved"));
+}
+
+function openValuationSheet(itemId){
+  const item = state.items.find((i) => i.id === itemId);
+  if (!item) return;
+  const vals = state.valsByItem[itemId] || [];
+  const lv = latestValuation(item, vals);
+  const prefill = lv ? lv.value : item.acquiredPrice;
+  const today = toDateInput(Date.now());
+
+  $("#sheet-root").innerHTML =
+    '<div class="sheet" role="dialog" aria-modal="true">' +
+      '<div class="sheet-hd"><button data-act="close-sheet">' + t("c.cancel") + "</button><b>" + t("fm.valTitle") + "</b>" +
+      '<button data-act="save-val" data-id="' + itemId + '" style="font-weight:600;color:var(--text)">' + t("c.save") + "</button></div>" +
+      '<div class="sheet-body form">' +
+        '<div class="field"><label>' + t("fm.valuePerItem") + " · " + currencyOf() + '</label>' +
+          '<input id="v-amount" type="text" inputmode="decimal" value="' + (prefill == null ? "" : (toDisplayMinor(prefill) / 100).toFixed(2)) + '" placeholder="0.00" /></div>' +
+        '<div class="field"><label>' + t("fm.date") + '</label><input id="v-date" type="date" value="' + today + '" max="' + today + '" /></div>' +
+        '<div class="field"><label>' + t("fm.note") + '</label><input id="v-note" type="text" placeholder="' + t("fm.optional") + '" autocomplete="off" /></div>' +
+        '<p class="foot-note">' + t("fm.valNote") + "</p>" +
+      "</div>" +
+    "</div>";
+  document.body.style.overflow = "hidden";
+}
+
+async function saveValuation(itemId){
+  const amount = parseMoneyToUsd($("#v-amount").value);
+  if (amount == null) { toast(t("tz.enterAmount")); return; }
+  const dateStr = $("#v-date").value;
+  if (!dateStr) { toast(t("tz.pickDate")); return; }
+  const valuedAt = new Date(dateStr + "T12:00:00").getTime();
+  if (valuedAt > Date.now() + 86400000) { toast(t("tz.future")); return; }
+
+  await dbPut("valuations", {
+    id: uid(), itemId, value: amount, currency: "USD",
+    note: $("#v-note").value.trim() || null, valuedAt, createdAt: Date.now(),
+  });
+  closeSheet();
+  await refreshAndRender();
+  toast(t("tz.valSaved"));
+}
+
+async function deleteValuation(id, itemId){
+  await dbDelete("valuations", id);
+  await refreshAndRender();
+  toast(t("tz.valRemoved"));
+}
+
+async function deleteItem(id){
+  if (!confirm(t("tz.delConfirm"))) return;
+  for (const p of state.photosByItem[id] || []) {
+    const u = state.urlCache.get(p.id);
+    if (u) URL.revokeObjectURL(u);
+    await dbDelete("photos", p.id);
+  }
+  for (const v of state.valsByItem[id] || []) await dbDelete("valuations", v.id);
+  await dbDelete("items", id);
+  location.hash = "#/collection";
+  await refreshAndRender();
+  toast(t("tz.deleted"));
+}
+
+/* =============================================================
+   导出：CSV / 打印 PDF / zip 备份
+   ============================================================= */
+function downloadBlob(name, blob){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function csvCell(v){
+  if (v == null) return "";
+  const s = String(v);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+const plain = (minor) => (minor == null ? "" : (minor / 100).toFixed(2));
+
+const CSV_HEADER = ["id", "title", "category", "brand", "status", "quantity", "currency",
+  "paid", "worth_now", "acquired_date", "storage_location", "serial_no", "note"];
+
+function csvHeader(){
+  return ["id", t("ex.item"), t("dt.category"), t("dt.brand"), "status", t("ex.qty"), "currency",
+    t("ex.paid"), "worth_now", t("dt.acquired"), t("dt.location"), t("dt.serial"), t("dt.note")];
+}
+
+function buildCsv(){
+  const lines = [csvHeader().join(",")];
+  for (const i of state.items) {
+    const vals = state.valsByItem[i.id] || [];
+    const lv = latestValuation(i, vals);
+    const unitWorth = lv ? lv.value : i.acquiredPrice;
+    lines.push([
+      i.id, i.title, catName(i.categoryId), i.brand, i.status, i.quantity || 1, currencyOf(),
+      plain(toDisplayMinor(i.acquiredPrice)), plain(toDisplayMinor(unitWorth)),
+      i.acquiredDate ? formatDate(i.acquiredDate) : "",
+      i.storageLocation, i.serialNo, i.note,
+    ].map(csvCell).join(","));
+  }
+  // BOM 给 Excel：没有它，Windows 版 Excel 会把中文读成乱码
+  return "\uFEFF" + lines.join("\r\n");
+}
+
+function exportCsv(){
+  if (!state.items.length) { toast(t("li.empty")); return; }
+  downloadBlob("collection-" + stamp() + ".csv", new Blob([buildCsv()], { type: "text/csv;charset=utf-8" }));
+  toast(t("tz.csvDone"));
+}
+
+function blobToDataURL(blob){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
+async function exportInsurancePdf(){
+  const owned = state.items.filter((i) => i.status === "owned").slice(0, PDF_MAX_ITEMS);
+  if (!owned.length) { toast(t("li.empty")); return; }
+
+  const cur = currencyOf();
+  let paid = 0, worth = 0;
+  for (const i of owned) {
+    const qty = i.quantity || 1;
+    if (i.acquiredPrice != null) paid += i.acquiredPrice * qty;
+    const w = itemWorth(i, state.valsByItem[i.id] || []);
+    if (w != null) worth += w;
+  }
+
+  const rows = [];
+  for (const i of owned) {
+    const cover = coverPhoto(i);
+    const img = cover ? await blobToDataURL(cover.thumb || cover.blob) : null;
+    const w = itemWorth(i, state.valsByItem[i.id] || []);
+    rows.push(
+      "<tr><td>" + (img ? '<img src="' + img + '" alt="" />' : '<div class="noimg">' + t("ex.noPhoto") + "</div>") + "</td>" +
+      '<td><div style="font-weight:600">' + esc(i.title) + "</div>" +
+      '<div style="color:#666;font-size:8pt">' + esc(catName(i.categoryId)) +
+        (i.brand ? " · " + esc(i.brand) : "") + (i.serialNo ? " · SN " + esc(i.serialNo) : "") + "</div>" +
+        (i.note ? '<div style="color:#777;font-size:7.5pt">' + esc(i.note) + "</div>" : "") +
+      "</td>" +
+      '<td class="n">' + (i.quantity || 1) + "</td>" +
+      '<td class="n">' + (i.storageLocation ? esc(i.storageLocation) : "—") + "</td>" +
+      '<td class="n">' + (i.acquiredPrice == null ? "—" : (toDisplayMinor(i.acquiredPrice) / 100).toFixed(2)) + "</td>" +
+      '<td class="n"><b>' + (w == null ? "—" : (toDisplayMinor(w) / 100).toFixed(2)) + "</b></td></tr>",
+    );
+  }
+
+  $("#print-sheet").innerHTML =
+    "<h1>" + t("ex.title") + "</h1>" +
+    '<div class="pmeta">' + t("ex.meta", { n: owned.length, d: formatDate(Date.now()) }) + "</div>" +
+    '<div class="ptotals">' +
+      "<div><span>" + t("ex.paid") + "</span><strong>" + (toDisplayMinor(paid) / 100).toFixed(2) + " " + cur + "</strong></div>" +
+      "<div><span>" + t("ex.estimated") + "</span><strong>" + (toDisplayMinor(worth) / 100).toFixed(2) + " " + cur + "</strong></div>" +
+      "<div><span>" + t("ex.items") + "</span><strong>" + owned.length + "</strong></div>" +
+    "</div>" +
+    '<table><thead><tr><th style="width:46pt"></th><th>' + t("ex.item") + '</th><th style="width:34pt">' + t("ex.qty") + "</th>" +
+    '<th style="width:70pt">' + t("ex.location") + '</th><th style="width:52pt">' + t("ex.paid") + '</th><th style="width:52pt">' + t("ex.value") + "</th></tr></thead>" +
+    "<tbody>" + rows.join("") + "</tbody></table>" +
+    '<p class="pnote">' + t("ex.disclaimer") + "</p>" +
+    '<p class="pnote">' + t("ex.rate", { r: RATES[cur], c: cur, d: RATE_ASOF }) + "</p>";
+
+  toast(t("tz.printHint"));
+  setTimeout(() => window.print(), 80);
+}
+
+/* ---------- zip：store 方式不压缩（JPEG 本来就不压缩） ---------- */
+const CRC_TABLE = (function () {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(u8){
+  let c = 0xffffffff;
+  for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function makeZip(files){
+  const enc = new TextEncoder();
+  const now = new Date();
+  const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2)) & 0xffff;
+  const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xffff;
+
+  const parts = [];
+  const central = [];
+  let offset = 0;
+
+  for (const f of files) {
+    const nameBytes = enc.encode(f.name);
+    const crc = crc32(f.data);
+    const size = f.data.length;
+
+    const lh = new Uint8Array(30 + nameBytes.length);
+    const v = new DataView(lh.buffer);
+    v.setUint32(0, 0x04034b50, true);
+    v.setUint16(4, 20, true);
+    v.setUint16(6, 0x0800, true); // 文件名 UTF-8
+    v.setUint16(8, 0, true); // 方法 0：直接存储
+    v.setUint16(10, dosTime, true);
+    v.setUint16(12, dosDate, true);
+    v.setUint32(14, crc, true);
+    v.setUint32(18, size, true);
+    v.setUint32(22, size, true);
+    v.setUint16(26, nameBytes.length, true);
+    v.setUint16(28, 0, true);
+    lh.set(nameBytes, 30);
+
+    parts.push(lh, f.data);
+    central.push({ nameBytes, crc, size, offset });
+    offset += lh.length + size;
+  }
+
+  const cdParts = [];
+  let cdSize = 0;
+  for (const e of central) {
+    const c = new Uint8Array(46 + e.nameBytes.length);
+    const v = new DataView(c.buffer);
+    v.setUint32(0, 0x02014b50, true);
+    v.setUint16(4, 20, true);
+    v.setUint16(6, 20, true);
+    v.setUint16(8, 0x0800, true);
+    v.setUint16(10, 0, true);
+    v.setUint16(12, dosTime, true);
+    v.setUint16(14, dosDate, true);
+    v.setUint32(16, e.crc, true);
+    v.setUint32(20, e.size, true);
+    v.setUint32(24, e.size, true);
+    v.setUint16(28, e.nameBytes.length, true);
+    v.setUint32(42, e.offset, true);
+    c.set(e.nameBytes, 46);
+    cdParts.push(c);
+    cdSize += c.length;
+  }
+
+  const eocd = new Uint8Array(22);
+  const dv = new DataView(eocd.buffer);
+  dv.setUint32(0, 0x06054b50, true);
+  dv.setUint16(8, central.length, true);
+  dv.setUint16(10, central.length, true);
+  dv.setUint32(12, cdSize, true);
+  dv.setUint32(16, offset, true);
+
+  return new Blob(parts.concat(cdParts, [eocd]), { type: "application/zip" });
+}
+
+async function exportZip(){
+  if (!state.items.length) { toast(t("li.empty")); return; }
+  toast(t("tz.packing"));
+
+  const enc = new TextEncoder();
+  const files = [];
+  const itemsDb = state.items.map((i) => ({
+    id: i.id, title: i.title, categoryId: i.categoryId, brand: i.brand, coverPhotoId: i.coverPhotoId,
+    acquiredPrice: i.acquiredPrice, acquiredDate: i.acquiredDate, quantity: i.quantity, status: i.status,
+    currency: i.currency, storageLocation: i.storageLocation, serialNo: i.serialNo, note: i.note,
+    createdAt: i.createdAt,
+  }));
+  const vals = [];
+  for (const k of Object.keys(state.valsByItem)) vals.push.apply(vals, state.valsByItem[k]);
+
+  const photoIndex = [];
+  for (const itemId of Object.keys(state.photosByItem)) {
+    const item = state.items.find((i) => i.id === itemId) || {};
+    for (const p of state.photosByItem[itemId]) {
+      const path = "photos/" + itemId + "/" + p.id + ".jpg";
+      files.push({ name: path, data: new Uint8Array(await p.blob.arrayBuffer()) });
+      photoIndex.push({ id: p.id, itemId: itemId, path: path, cover: p.id === item.coverPhotoId });
+    }
+  }
+
+  files.unshift(
+    { name: "manifest.json", data: enc.encode(JSON.stringify({
+      app: "Vitrine", format: "vitrine-backup-v1", exportedAt: new Date().toISOString(),
+      items: itemsDb.length, photos: photoIndex.length,
+    }, null, 2)) },
+    { name: "items.json", data: enc.encode(JSON.stringify(itemsDb, null, 2)) },
+    { name: "valuations.json", data: enc.encode(JSON.stringify(vals, null, 2)) },
+    { name: "photos/index.json", data: enc.encode(JSON.stringify(photoIndex, null, 2)) },
+  );
+
+  downloadBlob("vitrine-backup-" + stamp() + ".zip", makeZip(files));
+  toast(t("tz.backupDone", { n: photoIndex.length }));
+}
+
+/* =============================================================
+   路由与事件
+   ============================================================= */
+async function refreshAndRender(){
+  await loadAll();
+  render();
+}
+
+function route(){
+  const raw = location.hash.replace(/^#\/?/, "");
+  if (raw.indexOf("item/") === 0) {
+    state.view = "detail";
+    state.detailId = raw.slice(5);
+  } else if (TABS.some((t) => t.id === raw)) {
+    state.view = raw;
+    state.detailId = null;
+  } else {
+    state.view = "collection";
+  }
+  render();
+  window.scrollTo(0, 0);
+}
+
+document.addEventListener("click", async (e) => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const act = el.dataset.act;
+
+  if (act === "nav") { location.hash = "#/" + (el.dataset.view || "collection"); return; }
+  if (act === "cycle-sort") {
+    const i = SORT_ORDER.indexOf(state.sort);
+    state.sort = SORT_ORDER[(i + 1) % SORT_ORDER.length];
+    render();
+    return;
+  }
+  if (act === "pick-cat") {
+    const cat = el.dataset.cat;
+    state.categoryId = !cat || state.categoryId === cat ? null : cat;
+    render();
+    return;
+  }
+  if (act === "clear-filters") { state.query = ""; state.categoryId = null; render(); return; }
+  if (act === "open-item") { location.hash = "#/item/" + el.dataset.id; return; }
+  if (act === "new-item") { openNewSheet(); return; }
+  if (act === "close-sheet") { closeSheet(); return; }
+  if (act === "save-item") { await saveDraft(); return; }
+  if (act === "pick-cat-new") {
+    state.draft.categoryId = el.dataset.cat;
+    Array.from(el.parentElement.children).forEach((c) => c.setAttribute("aria-pressed", c === el ? "true" : "false"));
+    return;
+  }
+  if (act === "set-status") {
+    state.draft.status = el.dataset.status;
+    Array.from(el.parentElement.children).forEach((c) => c.setAttribute("aria-pressed", c === el ? "true" : "false"));
+    return;
+  }
+  if (act === "take-photo") { $("#camera-input").click(); return; }
+  if (act === "pick-photo") { $("#gallery-input").click(); return; }
+  if (act === "del-draft-photo") {
+    if (!state.draft) return;
+    const idx = state.draft.photos.findIndex((p) => p.id === el.dataset.id);
+    if (idx >= 0) {
+      URL.revokeObjectURL(state.draft.photos[idx].preview);
+      state.draft.photos.splice(idx, 1);
+    }
+    renderDraftPhotos();
+    return;
+  }
+  if (act === "add-val") { openValuationSheet(el.dataset.id); return; }
+  if (act === "save-val") { await saveValuation(el.dataset.id); return; }
+  if (act === "delete-item") { await deleteItem(el.dataset.id); return; }
+  if (act === "dismiss-sample") {
+    if (state.items.some((i) => i.id === SAMPLE_ID)) await deleteItem(SAMPLE_ID);
+    return;
+  }
+  if (act === "swap-hero") {
+    const item = state.items.find((i) => i.id === state.detailId);
+    if (item) { item.coverPhotoId = el.dataset.photo; await dbPut("items", item); await refreshAndRender(); }
+    return;
+  }
+  if (act === "exp-csv") { exportCsv(); return; }
+  if (act === "exp-pdf") { await exportInsurancePdf(); return; }
+  if (act === "exp-zip") { await exportZip(); return; }
+  if (act === "open-lang") { openLangSheet(); return; }
+  if (act === "set-lang") { setLang(el.dataset.lang); openLangSheet(); return; }
+});
+
+/* 搜索：输入即筛。重绘后把值和焦点放回去，否则每敲一个字输入框都会失焦 */
+document.addEventListener("input", (e) => {
+  if (!e.target || e.target.id !== "search-input") return;
+  state.query = e.target.value;
+  const value = state.query;
+  render();
+  const input = $("#search-input");
+  if (input) {
+    input.value = value;
+    input.focus();
+    input.setSelectionRange(value.length, value.length);
+  }
+});
+
+/* 估值历史：长按删除（移动端没有右键，所以给的就是长按） */
+let pressTimer = null;
+let pressedEl = null;
+document.addEventListener("pointerdown", (e) => {
+  const el = e.target.closest('[data-act="del-val"]');
+  if (!el) return;
+  pressedEl = el;
+  pressTimer = setTimeout(() => {
+    pressTimer = null;
+    pressedEl = null;
+    if (confirm(t("tz.valConfirm"))) deleteValuation(el.dataset.id, el.dataset.item);
+  }, 550);
+});
+function cancelPress(){ if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } pressedEl = null; }
+["pointerup", "pointercancel", "pointerleave", "pointermove"].forEach((ev) =>
+  document.addEventListener(ev, cancelPress));
+
+$("#gallery-input").addEventListener("change", (e) => {
+  const files = e.target.files;
+  e.target.value = "";
+  if (files && files.length) addFilesToDraft(files);
+});
+
+$("#camera-input").addEventListener("change", (e) => {
+  const files = e.target.files;
+  e.target.value = "";
+  if (files && files.length) addFilesToDraft(files);
+});
+
+window.addEventListener("hashchange", route);
+
+/* 兜底：脚本在渲染前就出错时，不要把整页留成空白 */
+window.addEventListener("error", (ev) => {
+  const v = document.getElementById("view");
+  if (v && !v.innerHTML) {
+    v.innerHTML = '<div class="wrap" style="padding:24px 20px;color:#C0392B;font-size:14px;line-height:21px">' +
+      (ev.message || "Startup error") + "</div>";
+  }
+});
+/* ---------------- 首次进入的示例藏品 ---------------- */
+const SAMPLE_ID = "sample_showcase";
+const SAMPLE_FLAG = "vitrine.sampleSeeded";
+
+/* 示例封面：一张自带的 SVG，不联网、不引品牌 */
+function samplePhotoBlob(){
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="720" height="720" viewBox="0 0 720 720">' +
+      '<rect width="720" height="720" fill="#efe9e1"/>' +
+      '<rect y="516" width="720" height="204" fill="#e2d9cd"/>' +
+      '<circle cx="360" cy="266" r="78" fill="#c2ae97"/>' +
+      '<path d="M360 352c-88 0-146 63-146 144v20h292v-20c0-81-58-144-146-144z" fill="#c2ae97"/>' +
+      '<rect x="150" y="496" width="156" height="26" rx="6" fill="#d6cabb"/>' +
+    "</svg>";
+  return new Blob([svg], { type: "image/svg+xml" });
+}
+
+/* 只在「第一次打开 且 一件藏品都没有」时放一件示例；用户删掉后不再塞回来 */
+async function maybeSeedSample(){
+  try {
+    if (localStorage.getItem(SAMPLE_FLAG) === "done") return;
+    localStorage.setItem(SAMPLE_FLAG, "done");
+    if (state.items.length) return;
+    const now = Date.now();
+    const blob = samplePhotoBlob();
+    const photo = { id: uid(), itemId: SAMPLE_ID, blob: blob, thumb: blob, createdAt: now };
+    const item = {
+      id: SAMPLE_ID, title: "Sample figure", categoryId: "cat_figure", brand: "Demo",
+      acquiredPrice: 12000, acquiredDate: now - 30 * 86400000, quantity: 1, status: "owned",
+      currency: "USD", storageLocation: null, serialNo: null, note: t("ob.sampleNote"),
+      coverPhotoId: photo.id, createdAt: now, updatedAt: now, sample: true,
+    };
+    await dbPut("photos", photo);
+    await dbPut("items", item);
+    await dbPut("valuations", { id: uid(), itemId: SAMPLE_ID, value: 14000, currency: "USD", note: null, valuedAt: now - 10 * 86400000 });
+    await dbPut("valuations", { id: uid(), itemId: SAMPLE_ID, value: 16500, currency: "USD", note: null, valuedAt: now });
+    await loadAll();
+  } catch (e) {
+    console.warn("sample seed failed:", e && e.message);
+  }
+}
+
+/* 示例藏品的名字跟着语言走，用户自己填的保持原样 */
+function itemTitle(item){
+  if (!item) return "";
+  return item.sample ? t("ob.sampleName") : item.title;
+}
+
+/* 启动 */
+(async function boot(){
+  await resolveInitialLang();
+  document.documentElement.lang = lang === "zh-Hans" ? "zh-CN" : lang;
+  try {
+    await loadAll();
+    await maybeSeedSample();
+  } catch (err) {
+    $("#view").innerHTML = '<div class="wrap"><div class="empty"><h2>' + t("stg.title") + "</h2>" +
+      "<p>" + t("stg.body") + "</p></div></div>";
+    return;
+  }
+  route();
+})();
+</script>
+</body>
+</html>
