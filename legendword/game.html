@@ -708,6 +708,29 @@ function artAffVal(k,lv,mul){
  if(k==="res")return Math.round(rnd(0.8,2.2)*mul*0.5*10)/10;
  return 0;
 }
+function artAffCap(k,lv,mul){
+ lv=Math.max(200,lv||200);
+ if(k==="atk")return Math.round(lv*2.0*mul*1.3);
+ if(k==="def")return Math.round(lv*1.1*mul*1.3);
+ if(k==="hp")return Math.round(lv*22*mul*1.2);
+ if(k==="atkp")return Math.round(5*mul*0.6*10)/10;
+ if(k==="crit")return Math.round(1.4*mul*0.5*10)/10;
+ if(k==="amp")return Math.round(4*mul*0.6*10)/10;
+ if(k==="red")return Math.round(Math.min(30,2.5*mul*0.5)*10)/10;
+ if(k==="hpp")return Math.round(6*mul*0.7*10)/10;
+ if(k==="defp")return Math.round(6*mul*0.7*10)/10;
+ if(k==="fix")return Math.round(lv*0.55*mul*1.3);
+ if(k==="luck")return Math.round(0.9*mul*0.5*10)/10;
+ if(k==="res")return Math.round(2.2*mul*0.5*10)/10;
+ return 0;
+}
+function artCapMul(it){return (it&&it.grow?1.5:1)*ART_MUL[(it&&it.q)||0];}
+function capArtAffs(it){
+ if(!it||!it.affs)return it;
+ const lv=Math.max(200,it.lv||S.lv||200),mul=artCapMul(it);
+ it.affs.forEach(a=>{const c=artAffCap(a.k,lv,mul);if(c>0&&a.v>c)a.v=c;});
+ return it;
+}
 function artRollAffs(q,sub,lv,grow,kind){
  const n=grow?Math.min(12,3+Math.floor(Math.max(0,lv-200)/88)):artCount(q,sub);
  const mul=(grow?1.5:1)*ART_MUL[q];
@@ -781,32 +804,45 @@ function mergeNoDowngrade(oldAffs,newAffs,count){
 }
 // 专属灵器重铸：词条类型/条数重新随机，锁定项原位原值继承；
 // 新词条的数值整体按比例上调（每次至少 +2%），因此只会变强不会变弱。
-function rerollGrowAffs(oldAffs,cand){
- const old=(oldAffs||[]).map(a=>({k:a.k,n:a.n,v:a.v,lock:!!a.lock}));
- const lkIdx=[],locked=[],oldOpen=[];
- old.forEach((a,i)=>{if(a.lock){lkIdx.push(i);locked.push(a);}else oldOpen.push(a);});
+function rerollGrowAffs(oldAffs,genFn,it){
+ const lv=Math.max(200,(it&&it.lv)||S.lv||200),mul=artCapMul(it||{grow:true,q:0});
+ const CAP=k=>artAffCap(k,lv,mul);
  const DEC={atkp:1,amp:1,red:1,hpp:1,defp:1,cap:1};
  const fix1=v=>Math.round(v*100)/100;
  const sumW=arr=>arr.reduce((s,a)=>s+affWeight(a),0);
- const pool=(cand||[]).map(a=>({k:a.k,n:a.n,v:a.v,lock:false}));
+ const clip=a=>{const c=CAP(a.k);if(c>0&&a.v>c)a.v=c;return a;};
+ const old=(oldAffs||[]).map(a=>({k:a.k,n:a.n,v:a.v,lock:!!a.lock}));
+ const lkIdx=[],locked=[],oldOpen=[];
+ old.forEach((a,i)=>{if(a.lock){lkIdx.push(i);locked.push(a);}else oldOpen.push(a);});
  const oldSum=sumW(oldOpen);
- // 同类型词条数值不低于旧值
- pool.forEach(c=>{for(const o of oldOpen){if(o.k===c.k&&o.v>c.v){c.v=o.v;break;}}});
- // 随机词条的数值按比例整体上调，保证总分不低于旧的 1.02 倍
- if(oldSum>0&&pool.length){
-  const cur=sumW(pool);
-  if(cur<oldSum*1.02&&cur>0){
-   const mul=oldSum*1.02/cur;
-   pool.forEach(a=>{a.v=DEC[a.k]?fix1(a.v*mul):Math.round(a.v*mul);});
-  }
-  let gap=oldSum*1.02-sumW(pool);
-  if(gap>0){
-   pool.sort((a,b)=>affWeight(b)-affWeight(a));
-   const t=pool[0],unit=affWeight({k:t.k,v:1});
-   if(unit>0)t.v=DEC[t.k]?fix1(t.v+gap/unit):Math.round(t.v+gap/unit);
+ const target=oldSum>0?oldSum*1.02:0;
+ // 类型随机：词条类型每洗一次全部重摇（旧词条不再固守）
+ const raw=(typeof genFn==="function"?genFn():(genFn||[])).map(a=>clip({k:a.k,n:a.n,v:a.v,lock:false}));
+ const pool=raw.map(a=>({k:a.k,n:a.n,v:a.v,lock:false}));
+ if(pool.length){
+  // 每条数值 = 该类型当前档位上限 × 0.85~1.0，同类型旧值更高则继承；一律不越过上限
+  pool.forEach(a=>{
+   const c=CAP(a.k);
+   let v=DEC[a.k]?fix1(c*rnd(0.85,1)):Math.round(c*rnd(0.85,1));
+   for(const o of oldOpen)if(o.k===a.k&&o.v>v)v=o.v;   // 同类型只升不降
+   a.v=Math.min(c,Math.max(1,v));                      // 上限封死
+  });
+  // 未封顶时把总分往旧值以上补（这条只补不削，封顶后自然停住）
+  let gap=Math.max(0,oldSum*1.02-sumW(pool));
+  for(let g=0;g<24&&gap>0.5;g++){
+   let t2=null;
+   for(const a of pool){
+    const c=CAP(a.k),step=DEC[a.k]?0.01:1;
+    if(c>0&&a.v+step<=c+1e-9){t2=a;break;}
+   }
+   if(!t2)break;
+   const unit=affWeight({k:t2.k,v:1}),c=CAP(t2.k);
+   const add=Math.min(gap/unit,c-t2.v);
+   t2.v=DEC[t2.k]?fix1(t2.v+add):Math.round(t2.v+add);
+   if(t2.v>c)t2.v=c;
+   gap=oldSum*1.02-sumW(pool);
   }
  }
- // 锁定项回填到原位置，其余按顺序排入
  const res=pool.slice(),out=[];
  let li=0,ri=0;
  const total=res.length+locked.length;
@@ -874,7 +910,18 @@ function rerollArt(slot){
  const lkIdx=artLockIdx({affs:old});
  const cap=Math.min(12,it.grow?3+Math.floor(Math.max(0,it.lv-200)/88):artCount(it.q,it.sub));
  const cand=artRollAffs(it.q,it.sub,it.lv,it.grow,it.kind);
- let out=it.grow?rerollGrowAffs(old,cand.slice(0,Math.max(1,cap-lkIdx.length))):cand.slice();
+ let out;
+ if(it.grow){
+  const wOld=old.reduce((s2,a)=>s2+affWeight(a),0);
+  let bestOut=null,bestW=-1;
+  for(let t=0;t<10;t++){
+   const o2=rerollGrowAffs(old,()=>artRollAffs(it.q,it.sub,it.lv,it.grow,it.kind).slice(0,Math.max(1,cap-lkIdx.length)),it);
+   const w2=o2.reduce((s2,a)=>s2+affWeight(a),0);
+   if(w2>bestW){bestW=w2;bestOut=o2;}
+   if(wOld<=0||w2>=wOld*0.98)break;
+  }
+  out=bestOut||[];
+ } else out=cand.slice();
  if(!it.grow){
   lkIdx.forEach(i=>{
    const L=old[i];if(!L)return;
@@ -918,7 +965,7 @@ function syncGrowArt(){
   if(t.q!==it.q||t.sub!==it.sub||it.affs.length!==cnt){
    const cand2=artRollAffs(t.q,t.sub,S.lv,true,it.kind);
    it.q=t.q;it.sub=t.sub;it.lv=S.lv;
-   it.affs=mergeNoDowngrade(it.affs,cand2);
+   it.affs=mergeNoDowngrade(it.affs,cand2);capArtAffs(it);
    log("◆ 专属灵器成长："+artTitle(it)+"（"+it.affs.length+" 条词条）","boss");
   }
  });
