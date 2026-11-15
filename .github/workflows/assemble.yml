@@ -1,0 +1,29 @@
+name: assemble-source
+
+on:
+  push:
+    paths:
+      - 'legendword/c*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 从分片还原可读源码
+        run: |
+          cat legendword/c?? | base64 -d | gzip -d > legendword/game.html
+          ls -l legendword/game.html
+          md5sum legendword/game.html
+
+      - name: 提交 game.html
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add legendword/game.html
+          if git diff --staged --quiet; then echo "无变化"; else git commit -m "chore: assemble game.html from shards"; git push; fi
