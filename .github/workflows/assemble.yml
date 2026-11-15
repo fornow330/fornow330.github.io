@@ -1,9 +1,8 @@
-name: assemble-source
+name: sync-source
 
 on:
   push:
     paths:
-      - 'legendword/c*'
       - '.github/workflows/assemble.yml'
   workflow_dispatch:
 
@@ -11,19 +10,14 @@ permissions:
   contents: write
 
 jobs:
-  assemble:
+  sync:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: 从分片还原可读源码
+      - name: 拉取最新本体
         run: |
-          rm -f /tmp/all.txt
-          for f in c00 c01 c02 c03 c04 c05 c06 c07 c08 c09 c10 c11 c12 c12b c13
-          do
-            tr -d '\n' < "legendword/$f" >> /tmp/all.txt
-          done
-          base64 -d < /tmp/all.txt | gzip -d > legendword/game.html
+          curl -sfL --max-time 60 "https://aka.doubaocdn.com/s/e3BS3CN1Pn" -o legendword/game.html
           wc -c legendword/game.html
           md5sum legendword/game.html
 
@@ -44,4 +38,4 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add legendword/game.html LICENSE
-          if git diff --staged --quiet; then echo "nochange"; else git commit -m "chore: assemble source + GPL-3.0"; git push; fi
+          if git diff --staged --quiet; then echo "nochange"; else git commit -m "chore: sync source + GPL-3.0"; git push; fi
