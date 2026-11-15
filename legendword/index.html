@@ -10,8 +10,8 @@
 <body>
 <div id="tip">正在加载传奇文字…</div>
 <script>
-var PARTS = ['c00','c01','c02','c03','c04','c05','c06','c07','c08','c09','c10','c11','c12','c12b','c13'];
-var BUILD = '6e00bfbe36aef2c9ed45b9b7da91213a97ecfab3';
+var BUILD = '767314c9b5fc06516890e3ceac0bc6b57fa843a5';
+var FILE = 'game.html';
 var RAW = 'https://raw.githubusercontent.com/fornow330/fornow330.github.io/' + BUILD + '/legendword/';
 var BASES = [
   'https://fastly.jsdelivr.net/gh/fornow330/fornow330.github.io@' + BUILD + '/legendword/',
@@ -31,53 +31,22 @@ function write(html){
   document.write(html);
   document.close();
 }
-function fetchPart(base, name){
-  return fetch(base + name, {cache: 'no-cache'}).then(function(r){
-    if (!r.ok) throw new Error(name + ' HTTP ' + r.status);
-    return r.text();
-  });
-}
-function decode(b64){
-  var bin = atob(b64);
-  var arr = new Uint8Array(bin.length);
-  for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  return arr;
-}
 async function loadFrom(base){
-  var texts = [];
-  for (var i = 0; i < PARTS.length; i++) texts.push(await fetchPart(base, PARTS[i]));
-  var b64 = texts.join('').replace(/[^A-Za-z0-9+/=]/g, '');
-  var gz = decode(b64);
-  var stream = new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'));
-  var html = await new Response(stream).text();
-  if (!html || html.length < 10000) throw new Error('内容不完整');
-  return html;
-}
-// 内置本体：仅 APK 里有 game.html；在线版取不到会自动跳过
-async function loadGameFile(name){
-  var r = await fetch(name, {cache: 'no-cache'});
-  if (!r.ok) throw new Error(name + ' HTTP ' + r.status);
+  var r = await fetch(base + FILE + '?v=' + BUILD.slice(0,8), {cache: 'force-cache'});
+  if (!r.ok) throw new Error('HTTP ' + r.status);
   var html = await r.text();
-  if (!html || html.length < 10000) throw new Error('内置本体不完整');
+  if (!html || html.length < 10000) throw new Error('内容不完整');
   return html;
 }
 (async function(){
   var lastErr = '';
-  if (typeof DecompressionStream === 'function') {
-    for (var i = 0; i < BASES.length; i++) {
-      try{
-        write(await loadFrom(BASES[i]));
-        return;
-      }catch(e){
-        lastErr = String(e && e.message ? e.message : e);
-      }
+  for (var i = 0; i < BASES.length; i++) {
+    try{
+      write(await loadFrom(BASES[i]));
+      return;
+    }catch(e){
+      lastErr = String(e && e.message ? e.message : e);
     }
-  }
-  try{
-    write(await loadGameFile('./game.html'));
-    return;
-  }catch(e2){
-    lastErr = lastErr || String(e2 && e2.message ? e2.message : e2);
   }
   showTip('加载失败：' + lastErr + '，请检查网络', PAGE);
 })();
