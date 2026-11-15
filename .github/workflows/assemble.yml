@@ -16,22 +16,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 修正分片
-        run: |
-          curl -sfL --max-time 40 "https://raw.githubusercontent.com/fornow330/fornow330.github.io/1e3edd388ab52710153b02353509afb374431861/legendword/c02" -o legendword/c02
-          python3 - <<'PY'
-import io
-p='legendword/c01'
-s=open(p).read()
-s=s.replace('K1aenVCOCssXnC','K1aenVCoCssXnC')
-open(p,'w').write(s)
-PY
-          echo fixed
-
       - name: 从分片还原可读源码
         run: |
-          rm -f legendword/game.html
-          for f in c00 c01 c02 c03 c04 c05 c06 c07 c08 c09 c10 c11 c12 c12b c13; do tr -d '\n' < legendword/$f >> /tmp/all.txt; done
+          rm -f /tmp/all.txt
+          for f in c00 c01 c02 c03 c04 c05 c06 c07 c08 c09 c10 c11 c12 c12b c13
+          do
+            tr -d '\n' < "legendword/$f" >> /tmp/all.txt
+          done
           base64 -d < /tmp/all.txt | gzip -d > legendword/game.html
           wc -c legendword/game.html
           md5sum legendword/game.html
@@ -52,5 +43,5 @@ PY
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add legendword/game.html legendword/c01 legendword/c02 legendword/c12b LICENSE
+          git add legendword/game.html LICENSE
           if git diff --staged --quiet; then echo "nochange"; else git commit -m "chore: assemble source + GPL-3.0"; git push; fi
