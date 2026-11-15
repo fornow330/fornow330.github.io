@@ -126,6 +126,16 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
       <div class="btn gold" id="btnBoss">挑战 BOSS</div>
       <div class="btn" id="btnTrial">历练副本</div>
     </div>
+    <div class="btns">
+      <div class="btn" id="btnTower">试炼塔</div>
+      <div class="btn" id="btnTowerNext">下一层</div>
+    </div>
+    <div id="evLine" class="sub" style="padding:2px 4px 6px;color:#8a877e"></div>
+    <div id="towerPanel" style="display:none">
+      <div class="sec-t">试炼塔 · 500 级起 <em id="towerState"></em></div>
+      <div id="towerList"></div>
+      <div class="btns"><div class="btn" id="btnTowerClose">返回战斗</div></div>
+    </div>
     <div class="skl" id="skillBtns"></div>
     <div id="log"></div>
   </div>
@@ -346,6 +356,7 @@ function blank(){
   rate:{g:0,e:0},offTs:0,boostEnd:0,
   realm:0,dp:{atk:0,def:0,hpm:0,crit:0,pts:6},spirit:0,sealed:null,ascendLose:0,
   art:{weapon:null,armor:null,head:null,neck:null,belt:null,boots:null},artGrow:null,
+  ticket:0,rerollCnt:0,tower:{lv:1,best:0},worldEv:null,worldEvNext:0,
   skyWin:false,skyTries:0,deadEnd:0
  };
 }
@@ -732,7 +743,7 @@ function capArtAffs(it){
  return it;
 }
 function artRollAffs(q,sub,lv,grow,kind){
- const n=grow?Math.min(12,3+Math.floor(Math.max(0,lv-200)/88)):artCount(q,sub);
+ const n=grow?Math.min(maxAffCount(),3+Math.floor(Math.max(0,lv-200)/88)+(maxAffCount()>12?1:0)):artCount(q,sub);
  const mul=(grow?1.5:1)*ART_MUL[q];
  const focus=ART_FOCUS[kind]||ART_AFF.map(a=>a.k),affs=[];
  const ALL=ART_AFF.map((a,j)=>j),FIDX=ALL.filter(j=>focus.indexOf(ART_AFF[j].k)>=0);
@@ -856,10 +867,16 @@ function rerollGrowAffs(oldAffs,genFn,it){
 }
 function artResonance(){
  const arts=ART_KINDS.map(k=>(S.art||{})[k]).filter(Boolean);
- const n=arts.length;if(n<4)return {n,amp:0,minQ:-1};
+ const n=arts.length;
+ if(n<4)return {n,amp:0,minQ:-1,tier:0};
  const minQ=Math.min.apply(null,arts.map(a=>a.q));
- return {n,amp:[0,3,6,10,15][minQ]*(n>=6?1:0.5),minQ};
+ const base=[0,3,6,10,15][minQ]||0;
+ const tier=n>=6?2:(n>=5?1:0);
+ const mult=tier===2?2:(tier===1?1.5:1);
+ return {n,amp:Math.round(base*mult*10)/10,minQ,tier};
 }
+// 6 件共鸣：专属灵器词条上限 +1（12 → 13）
+function maxAffCount(){return 12+(artResonance().n>=6?1:0);}
 function artBonus(){
  const sum={atk:0,def:0,hp:0,atkp:0,defp:0,hpp:0,amp:0,red:0};
  ART_KINDS.forEach(sl=>{const it=(S.art||{})[sl];if(!it)return;
@@ -889,39 +906,55 @@ function artLockIdx(it){const o=[];(it.affs||[]).forEach((a,i)=>{if(a.lock)o.pus
 function rerollArtCost(it){
  const base=Math.round(60*(it.q+1)*(it.q+1)+25*it.affs.length);
  const lk=artLockCount(it);
- const c=base*(1+0.35*lk);
+ const c=base*(1+0.35*lk)*(worldEvNow()==="smith"?0.5:1);
  return Math.round(it.grow?c*10:c);
 }
 function toggleArtLock(slot,idx){
  const it=(S.art||{})[slot];if(!it||!it.affs||!it.affs[idx])return;
  const a=it.affs[idx];
- if(!a.lock&&artLockCount(it)>=11){notice("最多锁定 11 条，至少留 1 条参与洗练。","warn");return;}
+ if(!a.lock&&artLockCount(it)>=maxAffCount()-1){notice("最多锁定 "+(maxAffCount()-1)+" 条，至少留 1 条参与洗练。","warn");return;}
  a.lock=!a.lock;
  it.lk=artLockIdx(it);
  toast((a.lock?"锁定「":"解锁「")+a.n+"」，重铸时"+(a.lock?"保持原值、位置不动":"可能被换掉"),"good");
  render();save();
 }
-function rerollArt(slot){
+function rerollArt(slot,opt){
+ opt=opt||{};
  const it=(S.art||{})[slot];if(!it){notice("该部位还没有灵器。","warn");return;}
- const c=rerollArtCost(it);
- if((S.spirit||0)<c){notice("灵晶不足，重铸需 "+nf(c)+"。","warn");return;}
- S.spirit-=c;
- const old=(it.affs||[]).map(a=>({k:a.k,n:a.n,v:a.v,lock:!!a.lock}));
+ if(opt.ticket){
+  if((S.ticket||0)<1){notice("没有保底券：每洗练 10 次得 1 张，试炼塔首通也送。","warn");return;}
+ }else{
+  const c=rerollArtCost(it);
+  if((S.spirit||0)<c){notice("灵晶不足，重铸需 "+nf(c)+"。","warn");return;}
+  S.spirit-=c;
+ }
+ const kindKey=opt.kind||null;
+ const kindName=kindKey?((ART_AFF.find(x=>x.k===kindKey)||{}).n||kindKey):"";
+ const old=(it.affs||[]).map(a2=>({k:a2.k,n:a2.n,v:a2.v,lock:!!a2.lock}));
  const lkIdx=artLockIdx({affs:old});
- const cap=Math.min(12,it.grow?3+Math.floor(Math.max(0,it.lv-200)/88):artCount(it.q,it.sub));
- const cand=artRollAffs(it.q,it.sub,it.lv,it.grow,it.kind);
+ const cap=Math.min(maxAffCount(),it.grow?3+Math.floor(Math.max(0,it.lv-200)/88):artCount(it.q,it.sub));
+ const mul=(it.grow?1.5:1)*ART_MUL[it.q];
+ const gen=()=>{
+  let base=artRollAffs(it.q,it.sub,it.lv,it.grow,it.kind);
+  if(it.grow)base=base.slice(0,Math.max(1,cap-lkIdx.length));
+  if(kindKey){
+   const half=Math.max(1,Math.ceil(base.length/2));
+   for(let i=0;i<half;i++)base[i]={k:kindKey,n:kindName,v:artAffVal(kindKey,Math.max(200,it.lv),mul)};
+  }
+  return base;
+ };
  let out;
  if(it.grow){
-  const wOld=old.reduce((s2,a)=>s2+affWeight(a),0);
+  const wOld=old.reduce((s2,x)=>s2+affWeight(x),0);
   let bestOut=null,bestW=-1;
   for(let t=0;t<10;t++){
-   const o2=rerollGrowAffs(old,()=>artRollAffs(it.q,it.sub,it.lv,it.grow,it.kind).slice(0,Math.max(1,cap-lkIdx.length)),it);
-   const w2=o2.reduce((s2,a)=>s2+affWeight(a),0);
+   const o2=rerollGrowAffs(old,gen,it);
+   const w2=o2.reduce((s2,x)=>s2+affWeight(x),0);
    if(w2>bestW){bestW=w2;bestOut=o2;}
    if(wOld<=0||w2>=wOld*0.98)break;
   }
   out=bestOut||[];
- } else out=cand.slice();
+ }else out=gen();
  if(!it.grow){
   lkIdx.forEach(i=>{
    const L=old[i];if(!L)return;
@@ -929,16 +962,23 @@ function rerollArt(slot){
    if(i<out.length)out[i]=keep;else out.push(keep);
   });
  }
- out.forEach(a=>{if(!a.n){const d=ART_AFF.find(x=>x.k===a.k);a.n=d?d.n:a.k;}});
+ out.forEach(a2=>{if(!a2.n){const d=ART_AFF.find(x=>x.k===a2.k);a2.n=d?d.n:a2.k;}});
  while(out.length>cap){
   let wi=-1;for(let i=0;i<out.length;i++){if(out[i].lock)continue;if(wi<0||affWeight(out[wi])<affWeight(out[i]))wi=i;}
   if(wi<0)break;out.splice(wi,1);
  }
  it.affs=out;
  it.lk=artLockIdx(it);
- notice("重铸完成："+it.affs.length+" 条词条已重新随机"+(lkIdx.length?"（锁定 "+lkIdx.length+" 条保持原值）":"")+(it.grow?"（专属灵器数值比例上调，只升不降）":"")+"。","good");
+ if(opt.ticket)S.ticket=Math.max(0,(S.ticket||0)-1);
+ let extraMsg="";
+ if(!opt.ticket){
+  S.rerollCnt=(S.rerollCnt||0)+1;
+  if(S.rerollCnt%10===0){S.ticket=(S.ticket||0)+1;extraMsg=" 洗练满 10 次，保底券 +1。";}
+ }
+ notice((opt.ticket?"保底券定向洗练（锁定类型「"+kindName+"」）：":"重铸完成：")+it.affs.length+" 条词条已重新随机"+(lkIdx.length?"（锁定 "+lkIdx.length+" 条保持原值）":"")+(it.grow?"（专属灵器数值比例上调，只升不降）":"")+extraMsg,"good");
  render();save();
 }
+function rerollArtTicket(slot,kind){rerollArt(slot,{ticket:true,kind});}
 function rollArtQ(mlv){
  const w=[60,mlv>=350?26:8,mlv>=600?12:0,mlv>=850?4:0];
  const tot=w.reduce((a,b)=>a+b,0);let r=Math.random()*tot;
@@ -961,7 +1001,7 @@ function syncGrowArt(){
  const gs=growArtSlots();
  gs.forEach(it=>{
   const t=growTier(S.lv);
-  const cnt=Math.min(12,3+Math.floor(Math.max(0,S.lv-200)/88));
+  const cnt=Math.min(maxAffCount(),3+Math.floor(Math.max(0,S.lv-200)/88)+(maxAffCount()>12?1:0));
   if(t.q!==it.q||t.sub!==it.sub||it.affs.length!==cnt){
    const cand2=artRollAffs(t.q,t.sub,S.lv,true,it.kind);
    it.q=t.q;it.sub=t.sub;it.lv=S.lv;
@@ -987,7 +1027,7 @@ function grantGrowArt(){
  S.art[kind]=it;
  const gs=growArtSlots();S.artGrow=gs[0];
  log("★★ 历练秘境深处，一尊专属灵器认你为主："+artTitle(it)+"（"+it.affs.length+" 条词条，已集 "+gs.length+"/6）","boss");
- notice("★ 获得专属灵器（"+gs.length+"/6）：随等级提升品质与词条，999 级为神上品 12 词条。","gold");
+ notice("★ 获得专属灵器（"+gs.length+"/6）：随等级提升品质与词条，999 级为神上品 "+maxAffCount()+" 词条。","gold");
  render();save();
 }
 function worldUpCost(kind){
@@ -1031,6 +1071,26 @@ function spawnHeaven(){
  notice("天道降临，这一战没有退路。","warn");
  renderMon();render();save();
 }
+/* ============ 怪物词缀（精灵怪 / 试炼塔） ============ */
+const MAFF={vamp:"吸血",thorn:"荆棘",split:"分裂",rage:"狂怒",shield:"护盾",haste:"疾行",regen:"回春"};
+const MAFF_D={vamp:"造成伤害的 25% 转为自身体力",thorn:"受到的 30% 伤害反弹给你",split:"被击杀后裂出半血分身再战",
+ rage:"血量低于 35% 时攻击 +60%",shield:"开局自带 25% 生命的护盾",haste:"25% 概率连击一次",regen:"每回合回复 1.2% 生命"};
+function rollMonAffs(n){
+ const keys=Object.keys(MAFF),out=[];
+ const cnt=Math.max(0,Math.min(n,keys.length));
+ for(let i=0;i<cnt;i++){
+  let k=0;
+  do{k=keys[Math.floor(Math.random()*keys.length)];}while(out.indexOf(k)>=0);
+  out.push(k);
+ }
+ return out;
+}
+function monAffText(c){return (c&&c.affs&&c.affs.length)?c.affs.map(k=>MAFF[k]).join("·"):"";}
+function setMonAffs(c,affs){
+ c.affs=affs||[];c.shield=0;
+ if(c.affs.indexOf("shield")>=0)c.shield=Math.round(c.maxhp*0.25);
+ return c;
+}
 function spawn(){
  if(S.mode==="boss"&&cur&&cur.hp>0)return;
  const m=curMap();
@@ -1045,14 +1105,22 @@ function spawn(){
  let name=isB?m.boss:pick(m.mobs);
  const mult=isB?3.4:rnd(0.85,1.15);
  const p=monPack(mlv,mult,m);
- const elite=S.realm===2&&!isB&&Math.random()<0.10;
+ const horde=worldEvNow()==="horde";
+ const elite=S.realm===2&&!isB&&Math.random()<(horde?0.30:0.10);
+ let affs=[];
  if(elite){
   name="精英·"+name;
   p.hp=Math.round(p.hp*2.2);p.atkMin=Math.round(p.atkMin*1.35);p.atkMax=Math.round(p.atkMax*1.4);
   p.exp=Math.round(p.exp*2);p.gold=Math.round(p.gold*1.5);
+  affs=rollMonAffs(Math.random()<0.35?2:1);
+ }else if(S.realm===2&&!isB&&Math.random()<0.2){
+  name="词缀·"+name;
+  p.hp=Math.round(p.hp*1.3);p.exp=Math.round(p.exp*1.3);
+  affs=rollMonAffs(1);
  }
  cur={name,lv:mlv,boss:isB,elite,ele:m.ele,hp:p.hp,maxhp:p.hp,atkMin:p.atkMin,atkMax:p.atkMax,
   def:p.def,exp:p.exp,gold:p.gold,poison:0,poisonDps:0};
+ setMonAffs(cur,affs);
  renderMon();
 }
 function autoAdvance(){
@@ -1079,13 +1147,25 @@ function playerAttack(forceFire){
  }
  dmg-=cur.def*0.5;
  dmg=Math.max(1,Math.round(dmg));
+ if(cur.shield>0){
+  const ab=Math.min(cur.shield,dmg);
+  cur.shield-=ab;dmg-=ab;
+  log("【护盾】抵消了 "+ab+" 点伤害。","sys");
+ }
  cur.hp-=dmg;
  log("你对【"+cur.name+"】"+tag+"，造成 "+dmg+" 伤害。",tag==="致命一击！"?"gold":(fire?"good":""));
+ if(cur.affs&&cur.affs.indexOf("thorn")>=0&&dmg>0){
+  const rb=Math.round(dmg*0.3);
+  S.hp-=rb;if(S.hp<0)S.hp=0;
+  log("【荆棘】反伤 "+rb+"。","warn");
+ }
 }
-function monsterAttack(){
+function monsterAttack(second){
  if(!cur||cur.hp<=0)return;
  const st=stats();
+ const af=cur.affs||[];
  let dmg=rnd(cur.atkMin,cur.atkMax)-rnd(st.defMin,st.defMax)*0.6;
+ if(af.indexOf("rage")>=0&&cur.hp<cur.maxhp*0.35)dmg*=1.6;
  if(cur.heaven){cur.turns=(cur.turns||0)+1;dmg*=1+Math.min(0.65,cur.turns/260);}
  dmg*=1-st.red/100;
  dmg*=1-Math.min(60,st.res)*0.4/100;
@@ -1095,6 +1175,12 @@ function monsterAttack(){
  S.hp-=dmg;
  if(S.hp<0)S.hp=0;
  log("【"+cur.name+"】反手一击，你受到 "+dmg+" 伤害。","warn");
+ if(af.indexOf("vamp")>=0){const h=Math.round(dmg*0.25);cur.hp=Math.min(cur.maxhp,cur.hp+h);log("【吸血】"+cur.name+" 回复 "+h+" 点。","warn");}
+ if(af.indexOf("regen")>=0&&cur.hp>0){const h=Math.round(cur.maxhp*0.012);cur.hp=Math.min(cur.maxhp,cur.hp+h);}
+ if(!second&&af.indexOf("haste")>=0&&cur.hp>0&&Math.random()<0.25){
+  log("【疾行】"+cur.name+" 追身连击！","warn");
+  monsterAttack(true);
+ }
 }
 function castShield(q){
  if(Date.now()<(S.shieldReady||0)){if(!q)notice("魔法盾还在冷却。","warn");return false;}
@@ -1135,14 +1221,24 @@ function winMonster(){
   log("金色锁链寸寸崩断，界门洞开——大世界在你眼前展开。","boss");
   S.mode="normal";enterWorld();return;
  }
+ if(cur.affs&&cur.affs.indexOf("split")>=0&&!cur.splitUsed){
+  cur.splitUsed=true;
+  cur.affs=cur.affs.filter(k=>k!=="split");
+  cur.maxhp=Math.max(1,Math.round(cur.maxhp*0.5));
+  cur.hp=cur.maxhp;cur.shield=0;
+  cur.exp=Math.round(cur.exp*0.6);cur.gold=Math.round(cur.gold*0.5);
+  log("【分裂】"+cur.name+" 裂成半血分身，还要再打一轮！","warn");
+  renderMon();render();return;
+ }
+ if(cur.tower){towerWin();S.mode="normal";cur=null;render();save();spawn();return;}
  const boss=cur.boss,name=cur.name;
  const decay=expDecay(cur.lv);
- const gain=Math.round(cur.exp*decay);
+ const gain=Math.round(cur.exp*decay*(worldEvNow()==="tide"?1.5:1));
  S.gold+=cur.gold;S.exp+=gain;S.kills++;
  rateAcc.g+=cur.gold;rateAcc.e+=gain;rateAcc.ms+=CONFIG.tickMs;
  dailyAdd("kills",1);dailyAdd("gold",cur.gold);
  if(S.realm===2){
-  const sp=Math.max(0,Math.round((3+Math.floor(Math.max(0,cur.lv-200)/25))*(cur.elite?2:1)*CONFIG.spiritRate));
+  const sp=Math.max(0,Math.round((3+Math.floor(Math.max(0,cur.lv-200)/25))*(cur.elite?2:1)*(worldEvNow()==="horde"?1.5:1)*CONFIG.spiritRate));
   S.spirit+=sp;
   if(boss){
   equipArt(dropArt(cur.lv));
@@ -1187,6 +1283,7 @@ function winMonster(){
  cur=null;spawn();
 }
 function die(){
+ if(cur&&cur.tower){towerDie();return;}
  const wasHeaven=!!(cur&&cur.heaven);
  const lose=Math.floor(S.gold*0.15);S.gold-=lose;
  if(wasHeaven){
@@ -1199,6 +1296,7 @@ function die(){
  S.hp=stats().hp;S.mp=maxMp();S.mode="normal";cur=null;spawn();
 }
 function tick(){
+ tickWorldEvent();
  if(S.deadEnd){
   if(Date.now()<S.deadEnd){render(false);return;}
   S.deadEnd=0;S.hp=stats().hp;S.mp=maxMp();
@@ -1488,6 +1586,91 @@ function resetAttr(){
  notice("属性点已全部退回。","gold");render();save();
 }
 
+/* ============ 大世界随机事件 ============ */
+const WEV={
+ tide:{n:"灵潮",d:"全图经验 +50%"},
+ smith:{n:"老匠人出山",d:"灵器重铸半价"},
+ horde:{n:"魔潮",d:"精英成群，灵晶 +50%"}
+};
+function worldEvNow(){
+ const e=S.worldEv;if(!e||!e.k)return null;
+ if(Date.now()>=(e.end||0)){S.worldEv=null;return null;}
+ return e.k;
+}
+function worldEvLeft(){const e=S.worldEv;if(!e)return 0;return Math.max(0,Math.ceil((e.end-Date.now())/60000));}
+function startWorldEvent(){
+ if(S.realm!==2)return;
+ const k=pick(Object.keys(WEV));
+ S.worldEv={k,end:Date.now()+10*60000};
+ S.worldEvNext=Date.now()+Math.round(rnd(8,12))*60000;
+ log("【大世界事件】"+WEV[k].n+"："+WEV[k].d+"（持续 10 分钟）","boss");
+ notice("大世界事件："+WEV[k].n+" —— "+WEV[k].d,"gold");
+}
+function tickWorldEvent(){
+ if(S.realm!==2)return;
+ if(!S.worldEvNext)S.worldEvNext=Date.now()+Math.round(rnd(5,9))*60000;
+ if(Date.now()>=S.worldEvNext)startWorldEvent();
+}
+/* ============ 试炼塔 · 500 级到 1000 级 · 50 层 ============ */
+const TOWER_MAX=50;
+function towerOpen(){return S.realm===2&&S.lv>=500;}
+function towerFloorMlv(f){return Math.min(1000,500+(Math.max(1,f)-1)*10);}
+function towerAffs(f){return Math.min(5,2+Math.floor((Math.max(1,f)-1)/12.5));}
+function towerNext(){return Math.min(TOWER_MAX,(S.tower.best||0)+1);}
+function renderTowerList(){
+ const box=$("#towerList");if(!box)return;
+ const st=$("#towerState");if(st)st.textContent="已通 "+(S.tower.best||0)+"/"+TOWER_MAX+" 层";
+ box.innerHTML="";
+ const best=S.tower.best||0;
+ const from=Math.max(1,best-1),to=Math.min(TOWER_MAX,best+2);
+ for(let f=from;f<=to;f++){
+  const c=document.createElement("div");c.className="card";
+  const done=f<=best,next=f===best+1;
+  const mlv=towerFloorMlv(f);
+  c.innerHTML='<div class="row"><span style="color:'+(done?"#6fce8a":(next?"#f0d093":"#6b6870"))+'">第 '+f+' 层'+(done?"（已通）":"")+'</span><span style="color:#8a877e">Lv'+mlv+' · '+towerAffs(f)+' 词缀</span></div>';
+  const acts=document.createElement("div");acts.className="acts";
+  const b=document.createElement("div");b.className="mini "+(done?"y":(next?"b":"off"));
+  b.textContent=done?"再战一层":(next?"挑战":"未解锁");
+  if(done||next)b.onclick=()=>{startTower(f);};
+  acts.appendChild(b);c.appendChild(acts);box.appendChild(c);
+ }
+ const tip=document.createElement("div");tip.className="foot";
+ tip.textContent="每 10 级一层，共 50 层；首通给灵晶、保底券与强化材料，失败无惩罚。";
+ box.appendChild(tip);
+}
+function startTower(f){
+ if(!towerOpen()){notice("500 级之后才能登上试炼塔。","warn");return;}
+ f=Math.min(TOWER_MAX,Math.max(1,f||towerNext()));
+ if(f>(S.tower.best||0)+1){notice("得先过第 "+towerNext()+" 层，不能跳层。","warn");return;}
+ const mlv=towerFloorMlv(f),m=curMap();
+ const p=monPack(mlv,2.0+f*0.05,m);
+ cur={name:"试炼塔 · 第"+f+"层",lv:mlv,boss:false,elite:true,tower:f,ele:m.ele,
+  hp:p.hp,maxhp:p.hp,atkMin:p.atkMin,atkMax:p.atkMax,def:Math.round(p.def*1.2),
+  exp:Math.round(p.exp*0.35),gold:0,poison:0,poisonDps:0};
+ setMonAffs(cur,rollMonAffs(towerAffs(f)));
+ S.mode="tower";S.hp=stats().hp;S.mp=maxMp();
+ $("#towerPanel").style.display="none";
+ log("第 "+f+" 层的守关者现身，词缀【"+monAffText(cur)+"】。","boss");
+ renderMon();render();save();
+}
+function towerWin(){
+ const f=cur.tower||1;
+ const sp=Math.round((800+f*300)*(worldEvNow()==="horde"?1.5:1)*CONFIG.spiritRate);
+ S.spirit=(S.spirit||0)+sp;
+ const first=f>(S.tower.best||0);
+ if(first){S.tower.best=f;if(f<TOWER_MAX)S.tower.lv=f+1;
+  S.ticket=(S.ticket||0)+1;
+  S.mat.enh=(S.mat.enh||0)+2;S.mat.star=(S.mat.star||0)+1;
+ }
+ log("★ 试炼塔第 "+f+" 层攻克，灵晶 +"+nf(sp)+(first?"、保底券 ×1、强化石 ×2、星辉石 ×1":"")+"。","gold");
+ notice(first?"第 "+f+" 层攻克（"+f+"/50）"+(f<TOWER_MAX?"，第 "+(f+1)+" 层已解锁":"，塔顶登临"):"第 "+f+" 层再次清剿，灵晶 +"+nf(sp),"gold");
+}
+function towerDie(){
+ log("试炼塔第 "+(cur.tower||1)+" 层失守，退守塔下，无损。","warn");
+ S.hp=stats().hp;S.mp=maxMp();S.mode="normal";cur=null;
+ notice("这层没过，调整灵器词条再来。","warn");
+ render();save();
+}
 /* ============ 泡点 / 历练 ============ */
 function pointToExp(){
  const p=Math.floor(S.point);
@@ -1677,6 +1860,13 @@ function render(refreshPanes){
  $("#btnBoss").className="btn gold"+(bLeft>0?" off":"");
  const tLeft=Math.max(0,Math.ceil(((S.trialReady||0)-Date.now())/1000));
  $("#btnTrial").textContent=tLeft>0?"历练 "+tLeft+"s":"历练副本";
+ $("#btnTower").className="btn"+(towerOpen()?"":" off");
+ $("#btnTower").textContent=towerOpen()?("试炼塔 "+(S.tower.best||0)+"/50"):"试炼塔（500级）";
+ $("#btnTowerNext").className="btn"+(towerOpen()?"":" off");
+ $("#btnTowerNext").textContent=towerOpen()?("第 "+towerNext()+" 层"):"未开放";
+ const evK=worldEvNow(),evLine=$("#evLine");
+ if(evLine)evLine.textContent=evK?("当前事件：「"+WEV[evK].n+"」"+WEV[evK].d+" · 剩余 "+worldEvLeft()+" 分钟"):("下一场大世界事件约 "+(Math.max(0,Math.ceil(((S.worldEvNext||0)-Date.now())/60000))||5)+" 分钟后");
+ if($("#towerPanel")&&$("#towerPanel").style.display!=="none")renderTowerList();
  if(refreshPanes){
   if($("#pane1").classList.contains("on"))renderBag();
   if($("#pane2").classList.contains("on"))renderChar();
@@ -1748,7 +1938,7 @@ function renderChar(){
   const rsn=artResonance();
   const rline=document.createElement("div");rline.className="sub";
   rline.style.cssText="padding:0 2px 6px;color:#8a877e";
-  rline.textContent="共鸣：已佩戴 "+rsn.n+"/6 件"+(rsn.n>=4?("，伤害加成 +"+rsn.amp+"%"):"（满 4 件起生效）")+"。";
+  rline.textContent="共鸣：已佩戴 "+rsn.n+"/6 件"+(rsn.n>=4?("，伤害加成 +"+rsn.amp+"%（4 件起 / 5 件 1.5 倍 / 6 件 2 倍且词条上限 13）"):"（满 4 件起生效）")+"；保底券 ×"+(S.ticket||0)+"。";
   box.appendChild(rline);
   ART_KINDS.forEach(sl=>{
    const it=(S.art||{})[sl];
@@ -1758,11 +1948,31 @@ function renderChar(){
    }else{
     const lines=it.affs.map((a,i)=>'<div class="sub lockline" data-k="'+sl+'" data-i="'+i+'" style="cursor:pointer;'+(a.lock?'color:#e0b34a':'')+'">· '+a.n+' +'+a.v+(["atkp","crit","amp","red","hpp","defp","luck","res"].indexOf(a.k)>=0?"%":"")+(a.lock?'  [已锁]':'')+'</div>').join("");
     c.innerHTML='<div class="row"><span style="color:'+["#c9c6bd","#6fce8a","#69a8ff","#f0a04a"][it.q]+'">'+artTitle(it)+'</span><span style="color:#8a877e">评分 '+nf(artScore(it))+'</span></div>'+
-     '<div class="sub">'+it.affs.length+' 条词条 · 器级 Lv'+it.lv+'（点词条可锁定，最多锁 11 条）</div>'+lines;
+     '<div class="sub">'+it.affs.length+'/'+maxAffCount()+' 条词条 · 器级 Lv'+it.lv+'（点词条可锁定，最多锁 '+(maxAffCount()-1)+' 条）</div>'+lines;
     const acts=document.createElement("div");acts.className="acts";
     const b=document.createElement("div");b.className="mini b";
-    b.textContent=(it.grow?"专属重铸 ":"重铸 ")+nf(rerollArtCost(it))+" 灵晶";
-    b.onclick=()=>rerollArt(sl);acts.appendChild(b);c.appendChild(acts);
+    b.textContent=(it.grow?"专属重铸 ":"重铸 ")+nf(rerollArtCost(it))+" 灵晶"+(worldEvNow()==="smith"?"（半价）":"");
+    b.onclick=()=>rerollArt(sl);acts.appendChild(b);
+    if((S.ticket||0)>0){
+     const tb=document.createElement("div");tb.className="mini y";
+     tb.textContent="用券定向洗（"+S.ticket+"）";
+     tb.onclick=()=>{
+      if(tb.dataset.open==="1"){
+       const box2=c.querySelector(".ticketrow");if(box2)box2.remove();
+       tb.dataset.open="0";return;
+      }
+      tb.dataset.open="1";
+      const row=document.createElement("div");row.className="acts ticketrow";row.style.flexWrap="wrap";
+      ART_AFF.forEach(af=>{
+       const kb=document.createElement("div");kb.className="mini";kb.textContent=af.n;
+       kb.onclick=()=>rerollArtTicket(sl,af.k);
+       row.appendChild(kb);
+      });
+      c.appendChild(row);
+     };
+     acts.appendChild(tb);
+    }
+    c.appendChild(acts);
     (c.querySelectorAll?c.querySelectorAll(".lockline"):[]).forEach(el=>{el.onclick=()=>{toggleArtLock(sl,+el.dataset.i);};});
    }
    box.appendChild(c);
@@ -2157,6 +2367,9 @@ function normalizeState(o){
  });
  st.realm=typeof st.realm==="number"?st.realm:0;
  st.spirit=st.spirit||0;st.point=st.point||0;
+ st.ticket=st.ticket||0;st.rerollCnt=st.rerollCnt||0;
+ st.tower=Object.assign({lv:1,best:0},st.tower||{});
+ st.worldEv=st.worldEv||null;st.worldEvNext=st.worldEvNext||0;
  st.soul=st.soul||0;st.soulLv=st.soulLv||0;
  if(!Array.isArray(st.bag))st.bag=[];
  if(typeof st.bagCap!=="number")st.bagCap=50;
@@ -2322,6 +2535,18 @@ function bind(){
   S.bossReady=now+90000;S.hp=stats().hp;S.mp=maxMp();spawnBoss();render();
  };
  $("#btnTrial").onclick=doTrial;
+ $("#btnTower").onclick=()=>{
+  if(!towerOpen()){notice("500 级之后才能登上试炼塔。","warn");return;}
+  renderTowerList();
+  $("#towerPanel").style.display="block";
+  $("#towerPanel").scrollIntoView&&$("#towerPanel").scrollIntoView({behavior:"smooth",block:"nearest"});
+ };
+ $("#btnTowerNext").onclick=()=>{
+  if(!towerOpen()){notice("500 级之后才能登上试炼塔。","warn");return;}
+  if(cur&&cur.hp>0&&!cur.tower){notice("眼前还有敌人，先解决它。","warn");return;}
+  startTower(towerNext());
+ };
+ $("#btnTowerClose").onclick=()=>{$("#towerPanel").style.display="none";};
  $("#btnBest").onclick=bestEquip;
  $("#btnSellAll").onclick=sellAll;
  $("#btnMerge").onclick=()=>{mergeItems(false);};
