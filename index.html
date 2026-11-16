@@ -43,7 +43,16 @@
   .card .go i{font-style:normal;display:inline-block;margin-left:2px;transition:transform .18s ease}
   .card:hover .go i{transform:translateX(3px)}
 
-  .search{margin:14px 0 0}
+  .links{display:flex;gap:8px;margin:10px 0 0}
+  .link{
+    flex:1;display:flex;align-items:center;justify-content:center;gap:4px;
+    padding:9px 10px;border:1px solid var(--line);border-radius:11px;
+    background:transparent;color:var(--dim);font:inherit;font-size:12px;cursor:pointer;
+    transition:border-color .18s ease,color .18s ease,background .18s ease;white-space:nowrap;
+  }
+  .link i{font-style:normal;color:var(--teal)}
+  .link:hover{border-color:rgba(53,214,180,.45);color:var(--ink);background:#12211F}
+  .search{margin:12px 0 0}
   .label{color:var(--mute);font-size:11px;margin:0 0 7px}
   form{display:flex;gap:8px}
   input[type=text]{
@@ -94,6 +103,11 @@
 
     <div class="list" id="list"></div>
 
+    <div class="links">
+      <button type="button" class="link" id="mainSite">进入主站 <i>→</i></button>
+      <button type="button" class="link" id="contact">联系本站长 <i>→</i></button>
+    </div>
+
     <section class="search">
       <p class="label">或者，找一个仓库</p>
       <form id="f" autocomplete="off">
@@ -138,6 +152,9 @@
     if(s.name) q.set('name', s.name);
     return 'fornowai://open?' + q.toString();
   }
+
+  document.getElementById('mainSite').addEventListener('click', ()=>go('https://fornow.cc'));
+  document.getElementById('contact').addEventListener('click', ()=>go('https://fornow.cc'));
 
   const resultsEl = document.getElementById('results');
   const noteEl = document.getElementById('note');
