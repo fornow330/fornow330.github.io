@@ -170,6 +170,10 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
     <div id="signBox"></div>
     <div class="sec-t">每日任务 <em id="dailyDate"></em></div>
     <div id="dailyList"></div>
+    <div class="sec-t">除魔任务 <em>每日刷新 · 完成领保底券</em></div>
+    <div id="questList"></div>
+    <div class="sec-t">词缀图鉴 <em>永久全属性加成</em></div>
+    <div id="affDexBox"></div>
     <div class="sec-t">激活码 <em>输入兑换</em></div>
     <div class="card"><div class="row"><input id="giftInput" placeholder="输入激活码" autocomplete="off"></div>
       <div class="acts"><div class="mini b" id="btnGift">兑换</div></div></div>
@@ -356,7 +360,8 @@ function blank(){
   rate:{g:0,e:0},offTs:0,boostEnd:0,
   realm:0,dp:{atk:0,def:0,hpm:0,crit:0,pts:6},spirit:0,sealed:null,ascendLose:0,
   art:{weapon:null,armor:null,head:null,neck:null,belt:null,boots:null},artGrow:null,
-  ticket:0,rerollCnt:0,tower:{lv:1,best:0},worldEv:null,worldEvNext:0,
+  ticket:0,rerollCnt:0,tower:{lv:1,best:0,end:0},worldEv:null,worldEvNext:0,
+  quest:null,affDex:{},chain:null,nemesis:false,
   skyWin:false,skyTries:0,deadEnd:0
  };
 }
@@ -456,21 +461,88 @@ function supremeBonus(){
  for(const k in S.supreme){const lv=S.supreme[k]||0;atk+=lv*14;hp+=lv*160;def+=lv*6;}
  return {atk,hp,def};
 }
+/* ============ 词缀图鉴：见过即收录，积累永久加成 ============ */
+const AFF_DEX_SINGLE=["vamp","thorn","split","rage","shield","haste","regen"];
+function affDexKeys(){
+ const out=[];
+ for(let i=0;i<AFF_DEX_SINGLE.length;i++){
+  out.push(AFF_DEX_SINGLE[i]);
+  for(let j=i+1;j<AFF_DEX_SINGLE.length;j++)out.push(AFF_DEX_SINGLE[i]+"+"+AFF_DEX_SINGLE[j]);
+ }
+ return out;
+}
+function affDexKey(affs){return (affs||[]).slice().sort().join("+");}
+function affDexAdd(affs){
+ const ord=AFF_DEX_SINGLE;
+ const arr=(affs||[]).filter(k=>ord.indexOf(k)>=0).slice().sort((x,y)=>ord.indexOf(x)-ord.indexOf(y));
+ const key=arr.join("+");
+ if(!key)return false;
+ if(affDexKeys().indexOf(key)<0)return false;
+ if(S.affDex[key])return false;
+ S.affDex[key]=1;
+ return true;
+}
+function affDexPct(){
+ const list=affDexKeys(),singles=list.slice(0,7),pairs=list.slice(7);
+ const s=singles.filter(k=>S.affDex[k]).length,p=pairs.filter(k=>S.affDex[k]).length;
+ let pct=Object.keys(S.affDex||{}).length*0.3;
+ if(s>=7)pct+=1.2;
+ if(p>=21)pct+=3.6;
+ return Math.round(pct*10)/10;
+}
+/* ============ 除魔任务：每日三项，完成给保底券 / 材料 ============ */
+const QUESTS=[
+ {k:"aff",n:"斩除词缀怪 / 精英",goal:8,rew:"保底券 ×1",rew0:"升星石 ×1"},
+ {k:"boss",n:"斩杀 BOSS",goal:2,rew:"保底券 ×1",rew0:"升星石 ×1"},
+ {k:"trial",n:"完成历练秘境",goal:2,rew:"强化石 ×3 + 灵晶",rew0:"强化石 ×3 + 水晶 ×10"}
+];
+function questEnsure(){
+ if(!S.quest||S.quest.d!==dayKey())S.quest={d:dayKey(),c:{aff:0,boss:0,trial:0},claim:{}};
+ S.quest.c=S.quest.c||{aff:0,boss:0,trial:0};
+ S.quest.claim=S.quest.claim||{};
+ return S.quest;
+}
+function questAdd(k,v){const q=questEnsure();q.c[k]=(q.c[k]||0)+(v||1);}
+function questClaim(k){
+ const q=questEnsure(),def=QUESTS.find(x=>x.k===k);
+ if(!def)return;
+ if(q.claim[k]){notice("这项今天领过了。","warn");return;}
+ if((q.c[k]||0)<def.goal){notice("还差 "+(def.goal-(q.c[k]||0))+" 次才完成。","warn");return;}
+ q.claim[k]=1;
+ if(S.realm===2){
+  if(k==="trial"){const sp=Math.round(1200*CONFIG.spiritRate);S.spirit=(S.spirit||0)+sp;S.mat.enh=(S.mat.enh||0)+3;
+   log("除魔任务完成：灵晶 +"+nf(sp)+"、强化石 ×3。","gold");}
+  else{S.ticket=(S.ticket||0)+1;log("除魔任务完成：保底券 ×1。","gold");}
+ }else{
+  if(k==="trial"){S.mat.enh=(S.mat.enh||0)+3;S.crystal=(S.crystal||0)+10;log("除魔任务完成：强化石 ×3、水晶 ×10。","gold");}
+  else{S.mat.star=(S.mat.star||0)+1;log("除魔任务完成：升星石 ×1。","gold");}
+ }
+ notice("除魔任务「"+def.n+"」完成。","gold");
+ save();renderWelfare();
+}
+/* ============ 宿敌：同一地界连斩 BOSS 五次 ============ */
+function bossChainAdd(){
+ const mi=S.map||0;
+ if(!S.chain||S.chain.m!==mi)S.chain={m:mi,n:0};
+ S.chain.n=(S.chain.n||0)+1;
+ if(S.chain.n>=5){S.chain={m:mi,n:0};S.nemesis=true;return true;}
+ return false;
+}
 function stats(){
  if(S.realm===2)return worldStats();
  const lv=S.lv,P=S.prestige,ap=S.attr;
  const db=dexBonus(),mb=meriBonus(),rb=relicBonus(),zb=zodiacBonus(),tb=titleBonus(),sb=supremeBonus();
  const soulM=1+(S.soulLv||0)*0.02, legM=1+(S.legacyLv||0)*0.015, trM=1+(S.transmog||0)*0.03;
- const pm=1+P*0.10;
+ const pm=1+P*0.10, dkp=1+affDexPct()/100;
  const aAdd=eqSum("atkMin")+mb.atk+rb.atk+zb.atk+tb.atk+db.atk+sb.atk;
  const dAdd=eqSum("defMin")+mb.def+rb.def+zb.def+sb.def;
  const hAdd=eqSum("hp")+mb.hp+rb.hp+zb.hp+tb.hp+db.hp+sb.hp;
  return {
-  atkMin:Math.round((4+lv*1.3+aAdd)*soulM*legM*trM*pm*(1+ap.atk*0.04)),
-  atkMax:Math.round((6+lv*2.0+aAdd)*soulM*legM*trM*pm*(1+ap.atk*0.04)),
-  defMin:Math.round((1+lv*0.5+dAdd)*(1+P*0.08+ap.def*0.03)*legM),
-  defMax:Math.round((2+lv*0.8+dAdd)*(1+P*0.08+ap.def*0.03)*legM),
-  hp:Math.round((110+lv*26+hAdd)*(1+P*0.08+ap.hp*0.05)*legM),
+  atkMin:Math.round((4+lv*1.3+aAdd)*soulM*legM*trM*pm*(1+ap.atk*0.04)*dkp),
+  atkMax:Math.round((6+lv*2.0+aAdd)*soulM*legM*trM*pm*(1+ap.atk*0.04)*dkp),
+  defMin:Math.round((1+lv*0.5+dAdd)*(1+P*0.08+ap.def*0.03)*legM*dkp),
+  defMax:Math.round((2+lv*0.8+dAdd)*(1+P*0.08+ap.def*0.03)*legM*dkp),
+  hp:Math.round((110+lv*26+hAdd)*(1+P*0.08+ap.hp*0.05)*legM*dkp),
   spd:r1(eqSum("spd")+mb.spd+(S.transmog||0)*1.2),
   luck:Math.min(12,r1(eqSum("luck")+(S.transmog||0)*0.4)),
   luckRes:r1(mb.luckRes+rb.luckRes+(S.specialRing?3:0)),
@@ -482,12 +554,12 @@ function stats(){
  };
 }
 function worldStats(){
- const w=Math.max(0,S.lv-200),d=S.dp||{},ab=artBonus();
+ const w=Math.max(0,S.lv-200),d=S.dp||{},ab=artBonus(),dkp=1+affDexPct()/100;
  let atk=200+w*120+(d.atk||0)*140+(ab.atk||0);
  let def=100+w*25+(d.def||0)*90+(ab.def||0);
  let hpm=6000+w*760+(d.hpm||0)*2400+(ab.hp||0);
  const crit=Math.min(60,8+(d.crit||0)*2+(ab.crit||0));
- atk=Math.round(atk*(1+(ab.atkp||0)/100));def=Math.round(def*(1+(ab.defp||0)/100));hpm=Math.round(hpm*(1+(ab.hpp||0)/100));
+ atk=Math.round(atk*(1+(ab.atkp||0)/100)*dkp);def=Math.round(def*(1+(ab.defp||0)/100)*dkp);hpm=Math.round(hpm*(1+(ab.hpp||0)/100)*dkp);
  return {atkMin:Math.round(atk*0.9),atkMax:Math.round(atk*1.1),defMin:Math.round(def),defMax:Math.round(def*1.15),
   hp:Math.round(hpm),spd:6,luck:Math.min(12,Math.round((5+(ab.luck||0))*10)/10),luckRes:4,
   fix:Math.round(ab.fix||0),amp:ab.amp||0,red:Math.min(70,ab.red||0),ele:0,
@@ -903,6 +975,24 @@ function equipArt(it){
 }
 function artLockCount(it){return (it.affs||[]).filter(a=>a.lock).length;}
 function artLockIdx(it){const o=[];(it.affs||[]).forEach((a,i)=>{if(a.lock)o.push(i);});return o.slice(0,11);}
+function artPresetSave(slot,which){
+ const it=(S.art||{})[slot];if(!it||!it.affs)return;
+ const idx=[];it.affs.forEach((a,i)=>{if(a.lock)idx.push(i);});
+ it.pr=it.pr||{a:null,b:null};it.pr[which]=idx.slice();
+ notice("已把当前锁定（"+idx.length+" 条）存为方案 "+(which==="a"?"A":"B")+"。","good");
+ save();
+}
+function artPresetApply(slot,which){
+ const it=(S.art||{})[slot];if(!it||!it.affs){notice("这个部位还没有灵器。","warn");return;}
+ const p=(it.pr||{})[which];
+ if(!p||!p.length){notice("方案 "+(which==="a"?"A":"B")+" 还没存过。","warn");return;}
+ const cap=Math.min(maxAffCount()-1,11);
+ if(p.length>cap){notice("该方案锁定 "+p.length+" 条，超过上限 "+cap+"。","warn");return;}
+ it.affs.forEach((a,i)=>{a.lock=p.indexOf(i)>=0;});
+ it.lk=[];it.affs.forEach((a,i)=>{if(a.lock)it.lk.push(i);});
+ notice("已套用方案 "+(which==="a"?"A":"B")+"（锁定 "+p.length+" 条），重铸按此保留。","good");
+ renderChar();save();
+}
 function rerollArtCost(it){
  const base=Math.round(60*(it.q+1)*(it.q+1)+25*it.affs.length);
  const lk=artLockCount(it);
@@ -1056,13 +1146,21 @@ function affDropMul(c){
 function spawnBoss(){
  const m=curMap();
  const mlv=S.realm===2?m.lv[1]:Math.min(230,m.lv[1]+3+Math.floor(S.lv*0.1));
+ const nem=!!(S.nemesis&&(!S.chain||S.chain.m===(S.map||0)));
  const p=monPack(mlv,3.4,m);
- const affs=S.realm===2?rollMonAffs(rnd(0,1)<0.5?2:1):(Math.random()<0.4?rollMonAffs(1):[]);
- cur={name:m.boss,lv:mlv,boss:true,ele:m.ele,hp:p.hp,maxhp:p.hp,atkMin:p.atkMin,atkMax:p.atkMax,
+ if(nem){
+  S.nemesis=false;
+  p.hp=Math.round(p.hp*1.8);p.atkMin=Math.round(p.atkMin*1.3);p.atkMax=Math.round(p.atkMax*1.35);
+  p.exp=Math.round(p.exp*2);p.gold=Math.round(p.gold*2);
+ }
+ const affs=nem?rollMonAffs(3):(S.realm===2?rollMonAffs(rnd(0,1)<0.5?2:1):(Math.random()<0.4?rollMonAffs(1):[]));
+ cur={name:nem?"宿敌·"+m.boss:m.boss,lv:mlv,boss:true,nemesis:nem,ele:m.ele,hp:p.hp,maxhp:p.hp,atkMin:p.atkMin,atkMax:p.atkMax,
   def:p.def,exp:p.exp,gold:p.gold,poison:0,poisonDps:0};
  setMonAffs(cur,affs);
+ if(affs.length)affDexAdd(affs);
  S.mode="boss";
- log("【BOSS】"+cur.name+" Lv"+mlv+" 现身！"+(affs.length?"词缀【"+monAffText(cur)+"】，更凶，也更肥。":""),"boss");
+ log((nem?"【宿敌】怨气化形的 ":"【BOSS】")+cur.name+" Lv"+mlv+" 现身！"+(affs.length?"词缀【"+monAffText(cur)+"】，"+(nem?"掉落翻倍、必爆极品。":"更凶，也更肥。"):""),"boss");
+ if(nem)notice("宿敌现身，掉落翻倍。","warn");
  renderMon();
 }
 // 破碎虚空：大世界满级后的终极挑战，天道是本作天花板
@@ -1138,6 +1236,7 @@ function spawn(){
  cur={name,lv:mlv,boss:isB,elite,ele:m.ele,hp:p.hp,maxhp:p.hp,atkMin:p.atkMin,atkMax:p.atkMax,
   def:p.def,exp:p.exp,gold:p.gold,poison:0,poisonDps:0};
  setMonAffs(cur,affs);
+ if(affs.length)affDexAdd(affs);
  renderMon();
 }
 function autoAdvance(){
@@ -1254,12 +1353,15 @@ function winMonster(){
  S.gold+=cur.gold;S.exp+=gain;S.kills++;
  rateAcc.g+=cur.gold;rateAcc.e+=gain;rateAcc.ms+=CONFIG.tickMs;
  dailyAdd("kills",1);dailyAdd("gold",cur.gold);
+ if(!boss&&(cur.elite||(cur.affs&&cur.affs.length)))questAdd("aff",1);
+ if(boss)questAdd("boss",1);
  if(S.realm===2){
-  const sp=Math.max(0,Math.round((3+Math.floor(Math.max(0,cur.lv-200)/25))*(cur.elite?2:1)*(worldEvNow()==="horde"?1.5:1)*CONFIG.spiritRate));
+  const sp=Math.max(0,Math.round((3+Math.floor(Math.max(0,cur.lv-200)/25))*(cur.elite?2:1)*(worldEvNow()==="horde"?1.5:1)*CONFIG.spiritRate*(cur.nemesis?2:1)));
   S.spirit+=sp;
   if(boss){
   const rich=!!(cur.affs&&cur.affs.length);
-  equipArt(rich?dropArtQ(cur.lv,1):dropArt(cur.lv));
+  const nb=cur.nemesis?2:1;
+  for(let bi=0;bi<nb;bi++)equipArt(rich?dropArtQ(cur.lv,cur.nemesis?2:1):dropArt(cur.lv));
   if(Math.random()<(rich?0.05:0.02)){grantGrowArt();}
  }else{
   const artCh=(cur.elite?0.2:0)+(cur.affs&&cur.affs.length?0.14:0);
@@ -1270,6 +1372,9 @@ function winMonster(){
   const first=!S.dex[name];
   S.dex[name]=(S.dex[name]||0)+1;
   if(first&&!boss){S.mat.enh+=2;S.crystal+=3;log("◆ 图鉴点亮【"+name+"】：强化石 ×2、水晶 ×3","drop");}
+ }
+ if(boss&&!cur.heaven&&!cur.gate&&S.realm===2){
+  if(bossChainAdd())log("你已连斩此地 BOSS 五次，怨气凝成【宿敌】，下次它必来寻仇。","boss");
  }
  if(boss){
   S.bossKills++;S.fame+=5;dailyAdd("boss",1);
@@ -1638,13 +1743,19 @@ const TOWER_MAX=50;
 function towerOpen(){return S.realm===2&&S.lv>=500;}
 function towerFloorMlv(f){return Math.min(1000,500+(Math.max(1,f)-1)*10);}
 function towerAffs(f){return Math.min(5,2+Math.floor((Math.max(1,f)-1)/12.5));}
-function towerNext(){return Math.min(TOWER_MAX,(S.tower.best||0)+1);}
+function towerEndN(){return (S.tower.end||0);}
+function towerNext(){
+ const best=S.tower.best||0;
+ if(best>=TOWER_MAX)return TOWER_MAX+towerEndN()+1;
+ return best+1;
+}
+function towerMaxOpen(){return (S.tower.best>=TOWER_MAX)?(TOWER_MAX+towerEndN()+1):TOWER_MAX;}
 function renderTowerList(){
  const box=$("#towerList");if(!box)return;
- const st=$("#towerState");if(st)st.textContent="已通 "+(S.tower.best||0)+"/"+TOWER_MAX+" 层";
+ const st=$("#towerState");if(st)st.textContent="已通 "+(S.tower.best||0)+"/"+TOWER_MAX+" 层"+(towerEndN()?" · 浮屠塔 "+towerEndN()+" 层":"");
  box.innerHTML="";
  const best=S.tower.best||0;
- const from=Math.max(1,best-1),to=Math.min(TOWER_MAX,best+2);
+ const from=Math.max(1,Math.min(TOWER_MAX,best-1)),to=Math.min(TOWER_MAX,(best>=TOWER_MAX?TOWER_MAX:best+2));
  for(let f=from;f<=to;f++){
   const c=document.createElement("div");c.className="card";
   const done=f<=best,next=f===best+1;
@@ -1656,20 +1767,41 @@ function renderTowerList(){
   if(done||next)b.onclick=()=>{startTower(f);};
   acts.appendChild(b);c.appendChild(acts);box.appendChild(c);
  }
+ if(best>=TOWER_MAX){
+  const h=document.createElement("div");h.className="sec-t";h.innerHTML="<span>浮屠塔</span><em>无尽 · 每层更强</em>";box.appendChild(h);
+  const e=towerEndN();
+  for(let k=1;k<=2;k++){
+   const f=TOWER_MAX+e+k;
+   const c2=document.createElement("div");c2.className="card";
+   c2.innerHTML='<div class="row"><span style="color:'+(k===1?"#f0d093":"#6b6870")+'">浮屠第 '+(e+k)+' 层</span>'+
+    '<span style="color:#8a877e">强度 ×'+(1+(f-TOWER_MAX)*0.18).toFixed(1)+' · 5 词缀</span></div>';
+   const acts2=document.createElement("div");acts2.className="acts";
+   const b2=document.createElement("div");b2.className="mini "+(k===1?"b":"off");
+   b2.textContent=k===1?"挑战":"未解锁";
+   if(k===1)b2.onclick=()=>startTower(f);
+   acts2.appendChild(b2);c2.appendChild(acts2);box.appendChild(c2);
+  }
+ }
  const tip=document.createElement("div");tip.className="foot";
- tip.textContent="每 10 级一层，共 50 层；首通给灵晶、保底券与强化材料，失败无惩罚。";
+ tip.textContent="每 10 级一层，共 50 层；首通给灵晶、保底券与强化材料，失败无惩罚。塔顶登临后开启浮屠塔：无限往上，每层强度 +18%，每 3 层再给保底券。";
  box.appendChild(tip);
 }
 function startTower(f){
  if(!towerOpen()){notice("500 级之后才能登上试炼塔。","warn");return;}
- f=Math.min(TOWER_MAX,Math.max(1,f||towerNext()));
- if(f>(S.tower.best||0)+1){notice("得先过第 "+towerNext()+" 层，不能跳层。","warn");return;}
- const mlv=towerFloorMlv(f),m=curMap();
- const p=monPack(mlv,2.4+f*0.06,m);
+ const best=S.tower.best||0;
+ if(f>TOWER_MAX&&best<TOWER_MAX){notice("先把 50 层试炼塔走完，浮屠塔才会开门。","warn");return;}
+ f=Math.max(1,f||towerNext());
+ const openF=best>=TOWER_MAX?TOWER_MAX+towerEndN()+1:Math.min(TOWER_MAX,best+1);
+ if(f>openF){notice("得先过第 "+towerNext()+" 层，不能跳层。","warn");return;}
+ const mlv=f>TOWER_MAX?1000:towerFloorMlv(f),m=curMap();
+ const boost=f>TOWER_MAX?1+(f-TOWER_MAX)*0.18:1;
+ const p=monPack(mlv,(2.4+Math.min(f,TOWER_MAX)*0.06)*boost,m);
  cur={name:"试炼塔 · 第"+f+"层",lv:mlv,boss:false,elite:true,tower:f,ele:m.ele,
   hp:p.hp,maxhp:p.hp,atkMin:p.atkMin,atkMax:p.atkMax,def:Math.round(p.def*1.2),
   exp:Math.round(p.exp*0.35),gold:0,poison:0,poisonDps:0};
- setMonAffs(cur,rollMonAffs(towerAffs(f)));
+ const affs=f>TOWER_MAX?rollMonAffs(5):rollMonAffs(towerAffs(f));
+ setMonAffs(cur,affs);
+ affDexAdd(affs);
  S.mode="tower";S.hp=stats().hp;S.mp=maxMp();
  $("#towerPanel").style.display="none";
  log("第 "+f+" 层的守关者现身，词缀【"+monAffText(cur)+"】。","boss");
@@ -1679,13 +1811,28 @@ function towerWin(){
  const f=cur.tower||1;
  const sp=Math.round((800+f*300)*(worldEvNow()==="horde"?1.5:1)*CONFIG.spiritRate);
  S.spirit=(S.spirit||0)+sp;
+ if(f>TOWER_MAX){
+  const n=f-TOWER_MAX;
+  if(n>towerEndN()){
+   S.tower.end=n;
+   if(n%3===0)S.ticket=(S.ticket||0)+1;
+   S.mat.enh=(S.mat.enh||0)+2+n;
+   S.mat.star=(S.mat.star||0)+Math.min(3,1+Math.floor(n/10));
+   log("★ 浮屠塔第 "+n+" 层踏破，灵晶 +"+nf(sp)+(n%3===0?"、保底券 ×1":"")+"、强化石 ×"+(2+n)+"。","gold");
+   notice("浮屠塔第 "+n+" 层踏破"+(n%3===0?"，保底券 ×1":"")+"。","gold");
+  }else{
+   log("浮屠塔第 "+n+" 层再次清剿，灵晶 +"+nf(sp)+"。","gold");
+   notice("第 "+n+" 层再次清剿，灵晶 +"+nf(sp),"gold");
+  }
+  return;
+ }
  const first=f>(S.tower.best||0);
  if(first){S.tower.best=f;if(f<TOWER_MAX)S.tower.lv=f+1;
   S.ticket=(S.ticket||0)+1;
   S.mat.enh=(S.mat.enh||0)+2;S.mat.star=(S.mat.star||0)+1;
  }
  log("★ 试炼塔第 "+f+" 层攻克，灵晶 +"+nf(sp)+(first?"、保底券 ×1、强化石 ×2、星辉石 ×1":"")+"。","gold");
- notice(first?"第 "+f+" 层攻克（"+f+"/50）"+(f<TOWER_MAX?"，第 "+(f+1)+" 层已解锁":"，塔顶登临"):"第 "+f+" 层再次清剿，灵晶 +"+nf(sp),"gold");
+ notice(first?"第 "+f+" 层攻克（"+f+"/50）"+(f<TOWER_MAX?"，第 "+(f+1)+" 层已解锁":"，塔顶登临，浮屠塔开门"):"第 "+f+" 层再次清剿，灵晶 +"+nf(sp),"gold");
 }
 function towerDie(){
  log("试炼塔第 "+(cur.tower||1)+" 层失守，退守塔下，无损。","warn");
@@ -1719,7 +1866,8 @@ function doTrial(){
  if(S.realm===2){
   const sp=Math.max(0,Math.round((40+Math.floor((S.lv-200)*1.2))*CONFIG.spiritRate));
   S.spirit+=sp;
-  if(Math.random()<0.06){grantGrowArt();render();save();return;}
+  questAdd("trial",1);
+ if(Math.random()<0.06){grantGrowArt();render();save();return;}
   notice("大世界历练完成：灵晶 +"+nf(sp)+"。（秘境深处偶有专属灵器）","gold");
   render();save();return;
  }
@@ -1996,6 +2144,19 @@ function renderChar(){
      acts.appendChild(tb);
     }
     c.appendChild(acts);
+    const pr=document.createElement("div");pr.className="acts";pr.style.flexWrap="wrap";
+    const prs=(it.pr||{});
+    const pa=document.createElement("div");pa.className="mini b";
+    pa.textContent="存方案A"+(prs.a?"（"+prs.a.length+"）":"");
+    pa.onclick=()=>artPresetSave(sl,"a");pr.appendChild(pa);
+    const ua=document.createElement("div");ua.className="mini "+(prs.a?"y":"off");
+    ua.textContent="套用A";ua.onclick=()=>artPresetApply(sl,"a");pr.appendChild(ua);
+    const pb=document.createElement("div");pb.className="mini b";
+    pb.textContent="存方案B"+(prs.b?"（"+prs.b.length+"）":"");
+    pb.onclick=()=>artPresetSave(sl,"b");pr.appendChild(pb);
+    const ub=document.createElement("div");ub.className="mini "+(prs.b?"y":"off");
+    ub.textContent="套用B";ub.onclick=()=>artPresetApply(sl,"b");pr.appendChild(ub);
+    c.appendChild(pr);
     (c.querySelectorAll?c.querySelectorAll(".lockline"):[]).forEach(el=>{el.onclick=()=>{toggleArtLock(sl,+el.dataset.i);};});
    }
    box.appendChild(c);
@@ -2325,12 +2486,39 @@ function renderWelfare(){
   const h2=document.createElement("div");h2.className="sec-t";h2.textContent="水晶商店";sl.appendChild(h2);
   CRY.forEach(([k,n,c])=>sl.appendChild(mk(k,n,c,"水晶")));
  }
+ renderQuest();renderAffDex();
  const hold=document.createElement("div");hold.className="foot";
  hold.textContent="持有：强化石 "+S.mat.enh+" · 洗炼石 "+S.mat.stone+" · 升星石 "+S.mat.star+
   " · 古物碎片 "+S.mat.relic+" · 生肖石 "+S.mat.zodiac+" · 传世令 "+S.mat.legacy+" · 至尊石 "+S.mat.supreme;
  sl.appendChild(hold);
 }
 
+function renderQuest(){
+ const q=questEnsure(),box=$("#questList");if(!box)return;box.innerHTML="";
+ QUESTS.forEach(t=>{
+  const v=Math.min(t.goal,q.c[t.k]||0),got=q.claim[t.k];
+  const c=document.createElement("div");c.className="card";
+  c.innerHTML='<div class="row"><span style="color:'+(got?"#6b6870":"#d9d6cf")+'">'+t.n+'</span><span style="color:#8a877e">'+v+' / '+t.goal+'</span></div>'+
+   '<div class="sub">奖励：'+(S.realm===2?t.rew:t.rew0)+'（每日重置）</div>';
+  const acts=document.createElement("div");acts.className="acts";
+  const b=document.createElement("div");b.className="mini "+(got?"off":(v>=t.goal?"y":"off"));
+  b.textContent=got?"已领取":(v>=t.goal?"领取":"未完成");
+  if(!got)b.onclick=()=>questClaim(t.k);
+  acts.appendChild(b);c.appendChild(acts);box.appendChild(c);
+ });
+}
+function renderAffDex(){
+ const box=$("#affDexBox");if(!box)return;box.innerHTML="";
+ const list=affDexKeys(),singles=list.slice(0,7),pairs=list.slice(7);
+ const s=singles.filter(k=>S.affDex[k]).length,p=pairs.filter(k=>S.affDex[k]).length;
+ const c=document.createElement("div");c.className="card";
+ c.innerHTML='<div class="row"><span>第一页 · 单条词缀</span><span style="color:#8a877e">'+s+' / 7</span></div>'+
+  '<div class="sub">'+singles.map(k=>'<span class="dot'+(S.affDex[k]?" on":"")+'"></span>'+(MAFF[k]||k)).join(" ")+'</div>'+
+  '<div class="row" style="margin-top:8px"><span>第二页 · 双词缀组合</span><span style="color:#8a877e">'+p+' / 21</span></div>'+
+  '<div class="sub">'+pairs.map(k=>'<span class="dot'+(S.affDex[k]?" on":"")+'"></span>').join(" ")+'</div>'+
+  '<div class="sub">已收录 '+Object.keys(S.affDex||{}).length+' 条 · 永久全属性 +'+affDexPct()+'%（每条 +0.3%，第一页集齐再 +1.2%，第二页集齐再 +3.6%）</div>';
+ box.appendChild(c);
+}
 /* ============ 设置 / 存档 ============ */
 const KEY="fj_v1",CFG_KEY="fj_cfg_v1",UNLOCK_KEY="fj_unlock_v1";
 const DEFAULT_CFG=JSON.parse(JSON.stringify(CONFIG));
@@ -2392,7 +2580,8 @@ function normalizeState(o){
  st.realm=typeof st.realm==="number"?st.realm:0;
  st.spirit=st.spirit||0;st.point=st.point||0;
  st.ticket=st.ticket||0;st.rerollCnt=st.rerollCnt||0;
- st.tower=Object.assign({lv:1,best:0},st.tower||{});
+ st.tower=Object.assign({lv:1,best:0,end:0},st.tower||{});
+ st.quest=st.quest||null;st.affDex=st.affDex||{};st.chain=st.chain||null;st.nemesis=!!st.nemesis;
  st.worldEv=st.worldEv||null;st.worldEvNext=st.worldEvNext||0;
  st.soul=st.soul||0;st.soulLv=st.soulLv||0;
  if(!Array.isArray(st.bag))st.bag=[];
