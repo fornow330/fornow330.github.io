@@ -124,10 +124,7 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
       <div class="bar"><i id="monHp" style="width:100%"></i><b id="monHpTxt">– / –</b></div>
     </div>
     <div class="btns">
-      <div class="btn on" id="btnAuto">自动挂机：开</div>
       <div class="btn" id="btnRest">打坐回血</div>
-    </div>
-    <div class="btns">
       <div class="btn gold" id="btnBoss">挑战 BOSS</div>
       <div class="btn" id="btnTrial">历练副本</div>
     </div>
@@ -146,7 +143,7 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
       <div class="mini g" id="btnMj2">秘境·深处</div>
       <div class="mini g" id="btnMj3">秘境·绝地</div>
     </div>
-    <div id="battleHint" class="sub" style="padding:2px 4px 6px;color:#8a877e"></div>
+    <div id="battleHint" class="sub" style="padding:2px 4px 4px;color:#8a877e;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     <div id="evLine" class="sub" style="padding:2px 4px 6px;color:#8a877e"></div>
     <div id="towerPanel" style="display:none">
       <div class="sec-t">试炼塔 · 500 级起 <em id="towerState"></em></div>
@@ -2365,6 +2362,8 @@ function render(refreshPanes){
  $("#btnTrial").textContent=tLeft>0?"历练 "+tLeft+"s":"历练副本";
  $("#btnTower").className="btn"+(towerOpen()?"":" off");
  $("#btnTower").textContent=towerOpen()?("试炼塔 "+(S.tower.best||0)+"/50"):"试炼塔（500级）";
+ $("#btnTower").style.display=(S.realm===2?"":"none");
+ $("#evLine").style.display=(S.realm===2?"":"none");
  (function(){
   const mt0=mapTier();
   [0,1,2].forEach(i=>{const b=$("#btnTf"+i);if(!b)return;b.className="mini "+(mt0===i?"y":"b");b.textContent=TIANFA[i].n;});
@@ -2382,7 +2381,7 @@ function render(refreshPanes){
    b.className="mini "+(okMj?"g":"off");
    b.textContent="秘境·"+c.n+(cdL>0?" "+cdL+"s":(S.lv<c.lv?"（Lv"+c.lv+"）":""));});
   const bh=$("#battleHint");
-  if(bh)bh.textContent="天罚："+TIANFA[mt0].n+"（强度 ×"+TIANFA[mt0].mul+"、掉落 ×"+TIANFA[mt0].drop+"）· 天关每日 3 次 30 秒 · 心魔每 200 级";
+  if(bh)bh.textContent="天罚 "+TIANFA[mt0].n+" · 强度 ×"+TIANFA[mt0].mul+" / 掉落 ×"+TIANFA[mt0].drop;
  })();
  const evK=worldEvNow(),evLine=$("#evLine");
  const evAct=(S.evAct&&S.evAct.k===evK)?S.evAct:null;
@@ -2945,15 +2944,13 @@ function applyRuntime(key){
  trimLog();restartTimers();
  if(key===undefined||key==="autoFight"){
   if(S.lv<=5&&Object.keys(S.eq||{}).length===0)starterKit();
- S.auto=CONFIG.autoFight;
+ S.auto=true;
   const sw=$("#saveWhere");
  if(sw){
   let where="浏览器本地存储";
   try{if(window.NativeStore&&NativeStore.save)where="手机私有目录（带备份）";}catch(e){}
   sw.textContent="自动存档位置："+where+"。每次存档同时写备份，异常退出也能读回上一份。";
  }
- $("#btnAuto").textContent="自动挂机："+(S.auto?"开":"关");
-  $("#btnAuto").className="btn"+(S.auto?" on":"");
  }
 }
 function restartTimers(){
@@ -3051,7 +3048,6 @@ function showOffReport(){
  m.style.display="flex";
  const resume=$("#btnOffResume"),close=$("#btnOffClose");
  if(resume)resume.onclick=()=>{m.style.display="none";S.auto=true;CONFIG.autoFight=true;
-  const ba=$("#btnAuto");if(ba){ba.textContent="自动挂机：开";ba.className="btn on";}
   S.offReport=null;save();toast("继续挂机。","good");};
  if(close)close.onclick=()=>{m.style.display="none";S.offReport=null;save();};
 }
@@ -3183,7 +3179,6 @@ function renderSet(){
 
 /* ============ 绑定 ============ */
 function bind(){
- $("#btnAuto").onclick=()=>{S.auto=!S.auto;$("#btnAuto").textContent="自动挂机："+(S.auto?"开":"关");$("#btnAuto").className="btn"+(S.auto?" on":"");toast(S.auto?"自动挂机已开":"已暂停，可手动点技能","good");};
  $("#btnRest").onclick=()=>{
   const now=Date.now();
   if(now<sitReady){notice("气息没调匀，再等 "+Math.ceil((sitReady-now)/1000)+" 秒。","warn");return;}
@@ -3253,12 +3248,10 @@ function boot(){
   log("养成页有泡点、经脉、转生、传世、生肖、图鉴、古物、魔魂、强化、升星。","sys");
  }
  if(S.lv<=5&&Object.keys(S.eq||{}).length===0)starterKit();
- S.auto=CONFIG.autoFight;
+ S.auto=true;
  if(S.daily.d!==dayKey())S.daily={d:dayKey(),kills:0,gold:0,drops:0,boss:0,rec:0,merge:0};
  if(S.hp<=0)S.hp=stats().hp;
  if(S.mp<=0)S.mp=maxMp();
- $("#btnAuto").textContent="自动挂机："+(S.auto?"开":"关");
- $("#btnAuto").className="btn"+(S.auto?" on":"");
  spawn();renderChips();render();restartTimers();
  window.addEventListener("pagehide",save);
  window.addEventListener("beforeunload",save);
