@@ -171,7 +171,7 @@
 
   function go(url){
     const u = normalize(url);
-    if(!u){ toast('请输入正确的网址，例如 https://example.com'); return; }
+    if(!u){ toast('请输入正确的网址，例如 https://fornow.cc'); return; }
     if(IN_APP){
       const q = new URLSearchParams(); q.set('u', u);
       location.href = 'fornowai://open?' + q.toString();
