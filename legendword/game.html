@@ -985,6 +985,12 @@ function rollArtQ(mlv){
  for(let i=0;i<w.length;i++){r-=w[i];if(r<=0)return i;}
  return 0;
 }
+function dropArtQ(mlv,boost){
+ boost=boost||0;
+ const q=Math.min(3,rollArtQ(mlv)+boost);
+ const sub=Math.min(2,Math.floor(Math.random()*3)+boost);
+ return makeArt(ART_KINDS[Math.floor(Math.random()*ART_KINDS.length)],mlv,q,sub,false);
+}
 function dropArt(mlv){
  const q=rollArtQ(mlv),sub=Math.floor(Math.random()*3);
  return makeArt(ART_KINDS[Math.floor(Math.random()*ART_KINDS.length)],mlv,q,sub,false);
@@ -1041,13 +1047,23 @@ function worldUp(kind){
  notice(({atk:"攻击",def:"防御",hpm:"生命",crit:"暴击"})[kind]+" 提升！","good");
  render();save();
 }
+/* 词缀怪爆率加成：精英 ×2.0，词缀 ×1.6，词缀 BOSS ×2.2 */
+function affDropMul(c){
+ if(!c||!(c.affs&&c.affs.length))return 1;
+ if(c.boss)return 2.2;
+ return c.elite?2.0:1.6;
+}
 function spawnBoss(){
  const m=curMap();
  const mlv=S.realm===2?m.lv[1]:Math.min(230,m.lv[1]+3+Math.floor(S.lv*0.1));
  const p=monPack(mlv,3.4,m);
+ const affs=S.realm===2?rollMonAffs(rnd(0,1)<0.5?2:1):(Math.random()<0.4?rollMonAffs(1):[]);
  cur={name:m.boss,lv:mlv,boss:true,ele:m.ele,hp:p.hp,maxhp:p.hp,atkMin:p.atkMin,atkMax:p.atkMax,
   def:p.def,exp:p.exp,gold:p.gold,poison:0,poisonDps:0};
- S.mode="boss";log("【BOSS】"+cur.name+" Lv"+mlv+" 现身！","boss");renderMon();
+ setMonAffs(cur,affs);
+ S.mode="boss";
+ log("【BOSS】"+cur.name+" Lv"+mlv+" 现身！"+(affs.length?"词缀【"+monAffText(cur)+"】，更凶，也更肥。":""),"boss");
+ renderMon();
 }
 // 破碎虚空：大世界满级后的终极挑战，天道是本作天花板
 function canSky(){return S.realm===2&&S.lv>=1000;}
@@ -1242,9 +1258,13 @@ function winMonster(){
   const sp=Math.max(0,Math.round((3+Math.floor(Math.max(0,cur.lv-200)/25))*(cur.elite?2:1)*(worldEvNow()==="horde"?1.5:1)*CONFIG.spiritRate));
   S.spirit+=sp;
   if(boss){
-  equipArt(dropArt(cur.lv));
-  if(Math.random()<0.04){grantGrowArt();}
- }else if(cur.elite&&Math.random()<1/8){equipArt(dropArt(cur.lv));}
+  const rich=!!(cur.affs&&cur.affs.length);
+  equipArt(rich?dropArtQ(cur.lv,1):dropArt(cur.lv));
+  if(Math.random()<(rich?0.12:0.04)){grantGrowArt();}
+ }else{
+  const artCh=(cur.elite?0.2:0)+(cur.affs&&cur.affs.length?0.14:0);
+  if(artCh>0&&Math.random()<artCh)equipArt(dropArtQ(cur.lv,cur.elite&&cur.affs&&cur.affs.length?1:0));
+ }
   log("你击败了【"+name+"】，经验 "+nf(gain)+(decay<1?"（等级压制 "+Math.round(decay*100)+"%）":"")+"，灵晶 +"+sp+"。","good");
  }else{
   const first=!S.dex[name];
@@ -1264,9 +1284,10 @@ function winMonster(){
   S.mode="normal";
  }
  S.soul+=boss?12:2;
- const drops=(boss&&S.realm!==2)?3:(S.realm===2?0:1);
+ const mul=affDropMul(cur);
+ const drops=(boss&&S.realm!==2)?Math.round(3*mul):(S.realm===2?0:1);
  for(let i=0;i<drops;i++){
-  if(Math.random()<(0.4+(boss?2.4:0))*CONFIG.dropRate){
+  if(Math.random()<(0.4+(boss?2.4:0))*CONFIG.dropRate*mul){
    const slotKey=pick(SLOTS).k;
    const q=Math.min(5,rollQual(curMap().tier+(boss?1:0)));
    addItem(mkItem(slotKey,Math.max(1,cur.lv-Math.floor(rnd(0,5))),curMap().tier,q));
@@ -1644,7 +1665,7 @@ function startTower(f){
  f=Math.min(TOWER_MAX,Math.max(1,f||towerNext()));
  if(f>(S.tower.best||0)+1){notice("得先过第 "+towerNext()+" 层，不能跳层。","warn");return;}
  const mlv=towerFloorMlv(f),m=curMap();
- const p=monPack(mlv,2.0+f*0.05,m);
+ const p=monPack(mlv,2.4+f*0.06,m);
  cur={name:"试炼塔 · 第"+f+"层",lv:mlv,boss:false,elite:true,tower:f,ele:m.ele,
   hp:p.hp,maxhp:p.hp,atkMin:p.atkMin,atkMax:p.atkMax,def:Math.round(p.def*1.2),
   exp:Math.round(p.exp*0.35),gold:0,poison:0,poisonDps:0};
