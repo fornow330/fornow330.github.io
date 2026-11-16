@@ -141,6 +141,11 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
       <div class="mini r" id="btnTg">天关</div>
       <div class="mini r" id="btnXm">心魔</div>
     </div>
+    <div class="quick">
+      <div class="mini g" id="btnMj1">秘境·外围</div>
+      <div class="mini g" id="btnMj2">秘境·深处</div>
+      <div class="mini g" id="btnMj3">秘境·绝地</div>
+    </div>
     <div id="battleHint" class="sub" style="padding:2px 4px 6px;color:#8a877e"></div>
     <div id="evLine" class="sub" style="padding:2px 4px 6px;color:#8a877e"></div>
     <div id="towerPanel" style="display:none">
@@ -2371,6 +2376,11 @@ function render(refreshPanes){
   if(xmB){const okXm=S.realm===2&&S.lv>=xmNextLv()&&nm0<5;
    xmB.className="mini "+(okXm?"r":"off");
    xmB.textContent="心魔 "+nm0+"/5";}
+  [1,2,3].forEach(i=>{const b=$("#btnMj"+i);if(!b)return;const c=MIJING[i-1];
+   const cdL=Math.max(0,Math.ceil(((S.trialReady||0)-Date.now())/1000));
+   const okMj=S.realm===2&&S.lv>=c.lv&&cdL<=0;
+   b.className="mini "+(okMj?"g":"off");
+   b.textContent="秘境·"+c.n+(cdL>0?" "+cdL+"s":(S.lv<c.lv?"（Lv"+c.lv+"）":""));});
   const bh=$("#battleHint");
   if(bh)bh.textContent="天罚："+TIANFA[mt0].n+"（强度 ×"+TIANFA[mt0].mul+"、掉落 ×"+TIANFA[mt0].drop+"）· 天关每日 3 次 30 秒 · 心魔每 200 级";
  })();
@@ -2660,24 +2670,6 @@ function renderWorldGrow(){
    return '<div class="row"><span>'+r[1]+' 里程碑 '+mi+'</span><span style="color:#8a877e">'+lv+' / '+nx+' 层</span></div><div class="sub">'+r[2]+'</div>';}).join("");
  })();
  box.appendChild(cDm);
- sec("秘境三层","历练副本 · 越深越肥");
- const cMj=document.createElement("div");cMj.className="card";
- (function(){
-  const tLeft=Math.max(0,Math.ceil(((S.trialReady||0)-Date.now())/1000));
-  cMj.innerHTML='<div class="sub">冷却 '+(tLeft>0?tLeft+" 秒":"就绪")+' · 一层为即时结算，二/三层要与守卫真打一场：守卫等级与你相同、强度比外界同等级高 50%，深层词缀更多。</div>'+
-   MIJING.map((c,i)=>'<div class="sub">'+(i+1)+'. '+c.n+' · 需 Lv'+c.lv+' · 灵晶 ×'+c.sp+' · 器灵机缘 '+Math.round(c.art*100)+'%</div>').join("");
-  const acts=document.createElement("div");acts.className="acts";
-  MIJING.forEach((c,i)=>{
-   const b=document.createElement("div");
-   const ok2=S.realm===2&&S.lv>=c.lv&&tLeft<=0;
-   b.className="mini "+(ok2?"g":"off");
-   b.textContent=(i+1)+"层"+(S.lv>=c.lv?"":"（需 Lv"+c.lv+"）");
-   b.onclick=()=>doTrial(i+1);
-   acts.appendChild(b);
-  });
-  cMj.appendChild(acts);
- })();
- box.appendChild(cMj);
  sec("灵器","武器/甲/头巾/项链/腰带/鞋子 · 词条全随机");
  const c1=document.createElement("div");c1.className="card";
  const w1=(S.art||{}).weapon, a1=(S.art||{}).armor;
@@ -3214,6 +3206,7 @@ function bind(){
  [0,1,2].forEach(i=>{const b=$("#btnTf"+i);if(b)b.onclick=()=>setMapTier(i);});
  $("#btnTg").onclick=()=>spawnTianGuan();
  $("#btnXm").onclick=()=>spawnMirror();
+ [1,2,3].forEach(i=>{const b=$("#btnMj"+i);if(b)b.onclick=()=>doTrial(i);});
  $("#btnTowerClose").onclick=()=>{$("#towerPanel").style.display="none";};
  $("#btnBest").onclick=bestEquip;
  $("#btnSellAll").onclick=sellAll;
