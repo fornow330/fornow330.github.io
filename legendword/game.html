@@ -237,7 +237,7 @@ const CFG_DEF=[
  {k:"monsterHpRate",n:"怪物血量",tip:"越小怪越好打",min:.1,max:20,step:.1},
  {k:"monsterAtkRate",n:"怪物攻击",tip:"越小你越抗揍",min:.05,max:20,step:.05},
  {k:"goldRate",n:"金币倍率",tip:"影响掉钱",min:.1,max:200,step:.1},
- {k:"crystalRate",n:"水晶爆率",tip:"普通怪掉水晶概率",min:0,max:20,step:.01},
+ {k:"crystalRate",n:"水晶爆率",tip:"普通怪掉水晶概率（基准 6%）",min:0,max:200,step:.01},
  {k:"spiritRate",n:"灵晶爆率",tip:"大世界打怪/历练的灵晶倍率",min:0,max:200,step:.1},
  {k:"bossInWild",n:"野怪出BOSS率",tip:"0=只靠按钮",min:0,max:1,step:.01},
  {k:"pointRate",n:"泡点速度",tip:"每分钟泡点",min:.2,max:60,step:.2},
@@ -1451,7 +1451,7 @@ function winMonster(){
    addItem(mkItem(slotKey,Math.max(1,cur.lv-Math.floor(rnd(0,5))),curMap().tier,q));
   }
  }
- if(!boss&&S.realm!==2&&Math.random()<0.02*CONFIG.crystalRate){const g=1+Math.floor(rnd(0,2));S.crystal+=g;log("怪物身上摸出水晶 ×"+g+"。","gold");}
+ if(!boss&&S.realm!==2&&Math.random()<0.06*CONFIG.crystalRate){const g=1+Math.floor(rnd(0,3));S.crystal+=g;S.crystalKills=(S.crystalKills||0)+1;log("怪物身上摸出水晶 ×"+g+"。","gold");}
  if(Math.random()<0.10)S.mat.hp+=1;
  if(Math.random()<0.06)S.mat.mp+=1;
  while(S.exp>=need(S.lv)&&S.lv<levelCap()){
