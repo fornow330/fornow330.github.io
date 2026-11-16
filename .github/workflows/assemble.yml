@@ -1,5 +1,6 @@
 name: sync-source
 
+# 触发：push SRC_URL.txt / 本文件；亦可手动 dispatch
 on:
   push:
     paths:
