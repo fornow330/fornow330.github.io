@@ -24,7 +24,7 @@ html,body{margin:0;padding:0;height:100%;background:#08080c;color:#9a968c;font:1
   <div id="st">正在准备…</div>
 </div>
 <script>
-var BUILD = 'e9fd22683507946e61c9b1ec3ff51e55f194dc7c';
+var BUILD = 'a6271a6125aa048a3dc6659890186978319677f0';
 var FILE = 'game.html';
 var RAW = 'https://raw.githubusercontent.com/fornow330/fornow330.github.io/' + BUILD + '/legendword/';
 var BASES = [
@@ -51,17 +51,6 @@ function fail(msg, url){
   setPct(0);
 }
 function write(html){ document.open(); document.write(html); document.close(); }
-function decode(chunks, bytesArr){
-  try{ return new TextDecoder('utf-8').decode(bytesArr); }catch(e){
-    var s = '';
-    for (var i = 0; i < chunks.length; i++){
-      var c = chunks[i], a = [];
-      for (var j = 0; j < c.length; j++) a.push(c[j]);
-      s += String.fromCharCode.apply(null, a);
-    }
-    try{ return decodeURIComponent(escape(s)); }catch(e2){ return s; }
-  }
-}
 function readWithProgress(resp, baseWeight, span){
   var total = Number(resp.headers.get('content-length') || 0);
   if (!resp.body || !resp.body.getReader) {
@@ -72,14 +61,13 @@ function readWithProgress(resp, baseWeight, span){
   function pump(){
     return reader.read().then(function(r){
       if (r.done) {
-        var out = new Uint8Array(got);
-        var off = 0;
+        var out = new Uint8Array(got), off = 0;
         for (var i = 0; i < chunks.length; i++){ out.set(chunks[i], off); off += chunks[i].length; }
-        return decode(chunks, out);
+        return new TextDecoder('utf-8').decode(out);
       }
       chunks.push(r.value);
       got += r.value.length;
-      var p = total > 0 ? (got / total) : Math.min(0.92, got / 170000);
+      var p = total > 0 ? (got / total) : Math.min(0.92, got / 180000);
       setPct(baseWeight + span * Math.min(1, p), '正在下载游戏本体 ' + Math.round(got / 1024) + ' KB');
       return pump();
     });
