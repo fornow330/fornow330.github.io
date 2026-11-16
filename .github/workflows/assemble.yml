@@ -34,12 +34,12 @@ jobs:
             if curl -sfL --max-time 30 "$u" -o /tmp/gpl.txt && head -1 /tmp/gpl.txt | grep -q 'GNU GENERAL PUBLIC LICENSE'; then ok=1; break; fi
           done
           if [ "$ok" != "1" ]; then echo 'license fetch failed'; exit 1; fi
-          printf '传奇文字 (Legend Word)\nCopyright (C) 2026 fornow330\n\n' > LICENSE
-          cat /tmp/gpl.txt >> LICENSE
+          printf '传奇文字 (Legend Word)\nCopyright (C) 2026 fornow330\n\n'  > legendword/LICENSE
+          cat /tmp/gpl.txt > > legendword/LICENSE
 
       - name: 提交
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add legendword/game.html LICENSE
+          git add legendword/game.html legendword/LICENSE
           if git diff --staged --quiet; then echo "nochange"; else git commit -m "chore: sync source + GPL-3.0"; git push; fi
