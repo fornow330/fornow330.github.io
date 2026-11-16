@@ -479,14 +479,16 @@ function supremeBonus(){
 /* ============ 词缀图鉴：见过即收录，积累永久加成 ============ */
 const AFF_DEX_SINGLE=["vamp","thorn","split","rage","shield","haste","regen"];
 function affDexKeys(){
- const out=[];
- for(let i=0;i<AFF_DEX_SINGLE.length;i++){
-  out.push(AFF_DEX_SINGLE[i]);
-  for(let j=i+1;j<AFF_DEX_SINGLE.length;j++)out.push(AFF_DEX_SINGLE[i]+"+"+AFF_DEX_SINGLE[j]);
- }
- return out;
+ const singles=AFF_DEX_SINGLE.slice(),pairs=[];
+ for(let i=0;i<AFF_DEX_SINGLE.length;i++)
+  for(let j=i+1;j<AFF_DEX_SINGLE.length;j++)pairs.push(AFF_DEX_SINGLE[i]+"+"+AFF_DEX_SINGLE[j]);
+ return singles.concat(pairs);
 }
-function affDexKey(affs){return (affs||[]).slice().sort().join("+");}
+function affDexLabel(k){
+ if(!k)return "";
+ const parts=k.split("+");
+ return parts.map(x=>MAFF[x]||x).join("+");
+}
 function affDexAdd(affs){
  const ord=AFF_DEX_SINGLE;
  const arr=(affs||[]).filter(k=>ord.indexOf(k)>=0).slice().sort((x,y)=>ord.indexOf(x)-ord.indexOf(y));
@@ -1174,7 +1176,6 @@ function spawnBoss(){
  cur={name:nem?("宿敌·"+m.boss+(nt?"（复仇 "+nt+" 重）":"")):m.boss,lv:mlv,boss:true,nemesis:nem,nemTier:nt,ele:m.ele,hp:p.hp,maxhp:p.hp,atkMin:p.atkMin,atkMax:p.atkMax,
   def:p.def,exp:p.exp,gold:p.gold,poison:0,poisonDps:0};
  setMonAffs(cur,affs);
- if(affs.length)affDexAdd(affs);
  S.mode="boss";
  log((nem?"【宿敌】怨气化形的 ":"【BOSS】")+cur.name+" Lv"+mlv+" 现身！"+(affs.length?"词缀【"+monAffText(cur)+"】，"+(nem?"掉落翻倍、必爆极品。":"更凶，也更肥。"):""),"boss");
  if(nem)notice("宿敌现身（复仇 "+(nt+1)+" 重），掉落 ×"+(2+nt)+"。","warn");
@@ -1253,7 +1254,6 @@ function spawn(){
  cur={name,lv:mlv,boss:isB,elite,ele:m.ele,hp:p.hp,maxhp:p.hp,atkMin:p.atkMin,atkMax:p.atkMax,
   def:p.def,exp:p.exp,gold:p.gold,poison:0,poisonDps:0};
  setMonAffs(cur,affs);
- if(affs.length)affDexAdd(affs);
  renderMon();
 }
 function autoAdvance(){
@@ -1363,6 +1363,7 @@ function winMonster(){
   log("【分裂】"+cur.name+" 裂成半血分身，还要再打一轮！","warn");
   renderMon();render();return;
  }
+ if(cur.affs&&cur.affs.length&&affDexAdd(cur.affs))log("◇ 词缀图鉴收录【"+affDexLabel(cur.affs.join("+"))+"】，永久全属性 +0.3%。","drop");
  if(cur.tower){towerWin();S.mode="normal";cur=null;render();save();spawn();return;}
  const boss=cur.boss,name=cur.name;
  const decay=expDecay(cur.lv);
@@ -1861,7 +1862,6 @@ function startTower(f){
  if(!affs)affs=f>TOWER_MAX?rollMonAffs(5):rollMonAffs(towerAffs(f));
  if(S.tower.pv)delete S.tower.pv[String(f)];
  setMonAffs(cur,affs);
- affDexAdd(affs);
  S.mode="tower";S.hp=stats().hp;S.mp=maxMp();
  $("#towerPanel").style.display="none";
  log("第 "+f+" 层的守关者现身，词缀【"+monAffText(cur)+"】。","boss");
@@ -2569,14 +2569,18 @@ function renderQuest(){
 }
 function renderAffDex(){
  const box=$("#affDexBox");if(!box)return;box.innerHTML="";
+ S.affDex=S.affDex||{};
  const list=affDexKeys(),singles=list.slice(0,7),pairs=list.slice(7);
  const s=singles.filter(k=>S.affDex[k]).length,p=pairs.filter(k=>S.affDex[k]).length;
+ const total=Object.keys(S.affDex).filter(k=>list.indexOf(k)>=0).length;
+ const tag=(k)=>'<span style="display:inline-block;margin:2px 7px 2px 0;color:'+(S.affDex[k]?"#e0b34a":"#6b6870")+'">'+
+  '<span class="dot'+(S.affDex[k]?" on":"")+'"></span>'+affDexLabel(k)+'</span>';
  const c=document.createElement("div");c.className="card";
- c.innerHTML='<div class="row"><span>第一页 · 单条词缀</span><span style="color:#8a877e">'+s+' / 7</span></div>'+
-  '<div class="sub">'+singles.map(k=>'<span class="dot'+(S.affDex[k]?" on":"")+'"></span>'+(MAFF[k]||k)).join(" ")+'</div>'+
-  '<div class="row" style="margin-top:8px"><span>第二页 · 双词缀组合</span><span style="color:#8a877e">'+p+' / 21</span></div>'+
-  '<div class="sub">'+pairs.map(k=>'<span class="dot'+(S.affDex[k]?" on":"")+'"></span>').join(" ")+'</div>'+
-  '<div class="sub">已收录 '+Object.keys(S.affDex||{}).length+' 条 · 永久全属性 +'+affDexPct()+'%（每条 +0.3%，第一页集齐再 +1.2%，第二页集齐再 +3.6%）</div>';
+ c.innerHTML='<div class="row"><span>第一页 · 单条词缀</span><span style="color:'+(s>=7?"#9be0a2":"#8a877e")+'">'+s+' / 7</span></div>'+
+  '<div class="sub">'+singles.map(tag).join("")+'</div>'+
+  '<div class="row" style="margin-top:8px"><span>第二页 · 双词缀组合</span><span style="color:'+(p>=21?"#9be0a2":"#8a877e")+'">'+p+' / 21</span></div>'+
+  '<div class="sub">'+pairs.map(tag).join("")+'</div>'+
+  '<div class="sub">已收录 '+total+' / 28 条 · 永久全属性 +'+affDexPct()+'%（每条 +0.3%，第一页集齐再 +1.2%，第二页集齐再 +3.6%，满 28 条共 +13.2%）</div>';
  box.appendChild(c);
 }
 /* ============ 设置 / 存档 ============ */
@@ -2643,6 +2647,7 @@ function normalizeState(o){
  st.tower=Object.assign({lv:1,best:0,end:0},st.tower||{});
  st.quest=st.quest||null;st.affDex=st.affDex||{};st.chain=st.chain||null;st.nemesis=!!st.nemesis;
  st.nchain=st.nchain||0;st.offReport=st.offReport||null;
+ try{const ak=affDexKeys();Object.keys(st.affDex||{}).forEach(k=>{if(ak.indexOf(k)<0)delete st.affDex[k];});}catch(e){}
  st.worldEv=st.worldEv||null;st.worldEvNext=st.worldEvNext||0;
  st.soul=st.soul||0;st.soulLv=st.soulLv||0;
  if(!Array.isArray(st.bag))st.bag=[];
