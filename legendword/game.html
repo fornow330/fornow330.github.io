@@ -610,13 +610,15 @@ function spawnMijing(layer){
  if(Date.now()<(S.trialReady||0)){notice("历练冷却中，还要 "+Math.ceil((S.trialReady-Date.now())/1000)+" 秒。","warn");return;}
  S.trialReady=Date.now()+120000;
  const m=curMap();
- const p=monPack(Math.min(230,S.lv+6*layer),2.6+layer*0.6,m);
- const hp=Math.round(p.hp*cfg.mul*2), atk=Math.round(p.atkMax*cfg.mul);
- cur={name:"秘境守卫·"+cfg.n,lv:Math.min(230,S.lv+6*layer),boss:true,mijing:layer,ele:m.ele,
-  hp:hp,maxhp:hp,atkMin:Math.round(atk*0.9),atkMax:atk,def:Math.round(p.def*cfg.mul),exp:p.exp,gold:p.gold,poison:0,poisonDps:0};
- setMonAffs(cur,rollMonAffs(1+layer));
+ // 秘境守卫：等级与人相同，强度 = 外界同等级 ×1.5；越深层多一重词缀
+ const p=monPack(S.lv,1.0,m);
+ const hp=Math.round(p.hp*1.5), atm=Math.round(p.atkMax*1.5);
+ cur={name:"秘境守卫·"+cfg.n,lv:S.lv,boss:true,mijing:layer,ele:m.ele,
+  hp:hp,maxhp:hp,atkMin:Math.round(atm*0.9),atkMax:atm,def:Math.round(p.def*1.5),
+  exp:Math.round(p.exp*cfg.sp),gold:Math.round(p.gold*cfg.sp),poison:0,poisonDps:0};
+ setMonAffs(cur,rollMonAffs(1+layer).filter(k=>k!=="split"));
  S.mode="boss";goPanel("0");
- log("【秘境】你踏入"+cfg.n+"，守卫现身：生命 "+nf(hp)+"、一击 "+nf(atk)+"，词缀【"+monAffText(cur)+"】。","boss");
+ log("【秘境】你踏入"+cfg.n+"，守卫现身（Lv"+S.lv+"，强度比外界高 50%）：生命 "+nf(hp)+"、一击 "+nf(atm)+"，词缀【"+monAffText(cur)+"】。","boss");
  notice("秘境"+cfg.n+"：灵晶 ×"+cfg.sp+"、器灵机缘 "+Math.round(cfg.art*100)+"%","warn");
  renderMon();render();save();
 } // 每斩一只宿敌 +1% 全属性，上限 10%
@@ -2556,7 +2558,7 @@ function renderWorldGrow(){
  const cMj=document.createElement("div");cMj.className="card";
  (function(){
   const tLeft=Math.max(0,Math.ceil(((S.trialReady||0)-Date.now())/1000));
-  cMj.innerHTML='<div class="sub">冷却 '+(tLeft>0?tLeft+" 秒":"就绪")+' · 一层为即时结算，二/三层要与守卫真打一场（带词缀，强度显著高于外界）。</div>'+
+  cMj.innerHTML='<div class="sub">冷却 '+(tLeft>0?tLeft+" 秒":"就绪")+' · 一层为即时结算，二/三层要与守卫真打一场：守卫等级与你相同、强度比外界同等级高 50%，深层词缀更多。</div>'+
    MIJING.map((c,i)=>'<div class="sub">'+(i+1)+'. '+c.n+' · 需 Lv'+c.lv+' · 灵晶 ×'+c.sp+' · 器灵机缘 '+Math.round(c.art*100)+'%</div>').join("");
   const acts=document.createElement("div");acts.className="acts";
   MIJING.forEach((c,i)=>{
