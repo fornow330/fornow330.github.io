@@ -9,9 +9,9 @@
 html,body{margin:0;padding:0;height:100%;background:#08080c;color:#9a968c;font:13px/1.7 -apple-system,"Noto Sans SC",sans-serif;overflow:hidden}
 #tip{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 28px;box-sizing:border-box}
 #tip h1{margin:0 0 18px;font-size:18px;letter-spacing:6px;color:#e0b34a;font-weight:600}
-#bar{width:min(260px,72vw);height:6px;border-radius:3px;background:#1b1a22;overflow:hidden;border:1px solid #2a2833}
+#bar{width:min(260px,72vw);height:8px;border-radius:4px;background:#1b1a22;overflow:hidden;border:1px solid #2a2833}
 #fill{height:100%;width:0%;background:linear-gradient(90deg,#8c6a2a,#e0b34a);transition:width .18s linear}
-#pct{margin-top:10px;font-size:13px;color:#c9a25a;font-variant-numeric:tabular-nums}
+#pct{margin-top:12px;font-size:14px;color:#c9a25a;font-variant-numeric:tabular-nums}
 #st{margin-top:6px;font-size:12px;color:#6b6870;min-height:18px}
 #st a{color:#e0b34a;margin-top:8px;display:inline-block}
 </style>
@@ -24,7 +24,7 @@ html,body{margin:0;padding:0;height:100%;background:#08080c;color:#9a968c;font:1
   <div id="st">正在准备…</div>
 </div>
 <script>
-var BUILD = 'c242e861625565e19a8466534bd9152d0698bdd4';
+var BUILD = 'e4fb23d542c80bd0b60e2ba24588c18ade2e196b';
 var FILE = 'game.html';
 var RAW = 'https://raw.githubusercontent.com/fornow330/fornow330.github.io/' + BUILD + '/legendword/';
 var BASES = [
@@ -32,6 +32,7 @@ var BASES = [
   'https://ghproxy.net/' + RAW,
   'https://gh-proxy.com/' + RAW,
   'https://ghfast.top/' + RAW,
+  'https://fornow330.github.io/legendword/',
   './'
 ];
 var PAGE = 'https://fornow330.github.io/legendword/';
@@ -50,6 +51,17 @@ function fail(msg, url){
   setPct(0);
 }
 function write(html){ document.open(); document.write(html); document.close(); }
+function decode(chunks, bytesArr){
+  try{ return new TextDecoder('utf-8').decode(bytesArr); }catch(e){
+    var s = '';
+    for (var i = 0; i < chunks.length; i++){
+      var c = chunks[i], a = [];
+      for (var j = 0; j < c.length; j++) a.push(c[j]);
+      s += String.fromCharCode.apply(null, a);
+    }
+    try{ return decodeURIComponent(escape(s)); }catch(e2){ return s; }
+  }
+}
 function readWithProgress(resp, baseWeight, span){
   var total = Number(resp.headers.get('content-length') || 0);
   if (!resp.body || !resp.body.getReader) {
@@ -60,8 +72,10 @@ function readWithProgress(resp, baseWeight, span){
   function pump(){
     return reader.read().then(function(r){
       if (r.done) {
-        var blob = new Blob(chunks, {type: 'text/html'});
-        return blob.text();
+        var out = new Uint8Array(got);
+        var off = 0;
+        for (var i = 0; i < chunks.length; i++){ out.set(chunks[i], off); off += chunks[i].length; }
+        return decode(chunks, out);
       }
       chunks.push(r.value);
       got += r.value.length;
@@ -74,7 +88,7 @@ function readWithProgress(resp, baseWeight, span){
 }
 async function loadFrom(base, idx, n){
   var baseWeight = idx / n * 100, span = 100 / n;
-  setPct(baseWeight, '正在连接 CDN ' + (idx + 1) + '/' + n + ' …');
+  setPct(baseWeight, '正在连接通道 ' + (idx + 1) + '/' + n + ' …');
   var r = await fetch(base + FILE + '?v=' + BUILD.slice(0, 8), {cache: 'force-cache'});
   if (!r.ok) throw new Error('HTTP ' + r.status);
   var html = await readWithProgress(r, baseWeight, span);
@@ -93,6 +107,11 @@ async function loadFrom(base, idx, n){
     }catch(e){
       lastErr = String(e && e.message ? e.message : e);
     }
+  }
+  if (location.protocol === 'file:') {
+    setPct(99, '网络不通，使用内置本体…');
+    location.replace('game.html');
+    return;
   }
   fail('加载失败：' + lastErr + '，请检查网络', PAGE);
 })();
