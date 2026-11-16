@@ -378,7 +378,7 @@ function blank(){
   art:{weapon:null,armor:null,head:null,neck:null,belt:null,boots:null},artGrow:null,
   ticket:0,rerollCnt:0,tower:{lv:1,best:0,end:0},worldEv:null,worldEvNext:0,
   quest:null,affDex:{},chain:null,nemesis:false,nchain:0,offReport:null,
-  skyWin:false,skyTries:0,deadEnd:0,xmWin:0
+  skyWin:false,skyTries:0,deadEnd:0,xmWin:0,mapTier:{},tg:null,grudge:0,nemStory:{}
  };
 }
 let S=blank();
@@ -552,6 +552,75 @@ function bossChainAdd(){
 }
 function nemTier(){return (S.nchain||0)+1;}          // 下一只宿敌的复仇重数：首只=1 重
 function nemKillPct(){const k=(S.nemArch&&S.nemArch.kills)||0;return Math.min(10,k);}
+/* ============ 天罚阶梯：同一地界三档烈度 ============ */
+const TIANFA=[{n:"常态",mul:1.0,drop:1.0,elite:0},{n:"凶险",mul:1.4,drop:1.6,elite:0.05},{n:"绝境",mul:1.9,drop:2.2,elite:0.10}];
+function mapTier(){const t=(S.mapTier||{})[S.map||0];return t===undefined?0:t;}
+function setMapTier(t){S.mapTier=S.mapTier||{};S.mapTier[S.map||0]=t;log("【天罚】"+curMap().n+" 调整为「"+TIANFA[t].n+"」：怪物强度 ×"+TIANFA[t].mul+"、掉落 ×"+TIANFA[t].drop+"。","boss");render();save();}
+/* ============ 词缀共鸣：同一件灵器堆同类词条 ============ */
+function resoRule(k){
+ return ({atk:["atkP",8,15,"攻击"],atkp:["atkP",6,12,"攻击加成"],def:["defP",6,12,"防御"],defp:["defP",6,12,"防御加成"],
+  hp:["hpP",6,12,"生命"],hpp:["hpP",6,12,"生命加成"],crit:["cdmg",30,60,"暴暴伤"],amp:["amp",6,12,"伤害加深"],red:["red",5,10,"伤害减免"]})[k]||null;
+}
+function artReso(){
+ const b={atkP:0,hpP:0,defP:0,amp:0,red:0,cdmg:0,sets:[]};
+ const seen=new Set();
+ ART_KINDS.forEach(sl=>{
+  const it=(S.art||{})[sl];if(!it||!it.affs)return;
+  const c={};it.affs.forEach(a=>{c[a.k]=(c[a.k]||0)+1;});
+  Object.keys(c).forEach(k=>{
+   if(!resoRule(k)||c[k]<3)return;
+   const t=c[k]>=5?2:1,r=resoRule(k);
+   b[r[0]]+= t===2?r[2]:r[1];
+   const key=sl+k+t;if(seen.has(key))return;seen.add(key);
+   b.sets.push({slot:ART_SLOT[sl]||sl,name:(ART_AFF.find(x=>x.k===k)||{n:k}).n,count:c[k],tier:t,eff:t===2?r[2]:r[1],what:r[3]});
+  });
+ });
+ return b;
+}
+/* ============ 道行里程碑 ============ */
+function resoLine(it){
+ if(!it||!it.affs)return "";
+ const c={};it.affs.forEach(a=>c[a.k]=(c[a.k]||0)+1);
+ const rs=Object.keys(c).filter(k=>resoRule(k)&&c[k]>=3).map(k=>{const r=resoRule(k);return (ART_AFF.find(x=>x.k===k)||{n:k}).n+"×"+c[k]+"→"+r[3]+"+"+(c[k]>=5?r[2]:r[1])+"%";});
+ return rs.length?'<div class="sub" style="color:#e0b34a">共鸣：'+rs.join("；")+'</div>':"";
+}
+function dpMile(k){return Math.floor((((S.dp||{})[k])||0)/50);}
+/* ============ 限时天关：每日 3 次，30 秒内清杀 ============ */
+function tgEnsure(){if(!S.tg||S.tg.d!==dayKey())S.tg={d:dayKey(),used:0};return S.tg;}
+function spawnTianGuan(){
+ if(S.realm!==2){notice("天关只在大世界开启。","warn");return;}
+ if(S.lv<300){notice("需 Lv300 才能挑战天关。","warn");return;}
+ const tg=tgEnsure();
+ if(tg.used>=3){notice("今日天关次数已用完（3/3），明天再来。","warn");return;}
+ if(cur&&cur.hp>0&&!cur.tian){notice("先把眼前的怪打完。","warn");return;}
+ if(S.deadEnd&&Date.now()<S.deadEnd){notice("肉身未稳，稍后再战。","warn");return;}
+ tg.used++;
+ const m=curMap(),p=monPack(S.lv,3.6,m);
+ const hp=Math.round(p.hp*2.4),atm=Math.round(p.atkMax*1.3);
+ cur={name:"天关·今日之敌",lv:S.lv,boss:true,tian:true,ele:m.ele,hp:hp,maxhp:hp,
+  atkMin:Math.round(atm*0.9),atkMax:atm,def:Math.round(p.def*1.4),exp:p.exp,gold:p.gold,poison:0,poisonDps:0};
+ setMonAffs(cur,rollMonAffs(3).filter(k=>k!=="split"));
+ S.tgEnd=Date.now()+30000;
+ S.mode="boss";S.hp=stats().hp;S.mp=maxMp();
+ goPanel("0");
+ log("【天关】今日之敌现身（Lv"+S.lv+"）：生命 "+nf(hp)+"、一击 "+nf(atm)+"，30 秒内不清掉它就逃了。","boss");
+ notice("天关：30 秒限时，今日剩 "+(3-tg.used)+" 次。","warn");
+ renderMon();render();save();
+}
+/* ============ 宿敌剧情链 ============ */
+const NEM_STORY={
+ 3:"宿敌冷笑：你以为斩的是我？你斩的是你自己第一次退让的那一刻。",
+ 5:"宿敌低声：五次了。你越强，我就越清楚你怕什么。",
+ 8:"宿敌狂笑：八重怨气入骨，再见面时，我已是你照不出的那面镜子。"
+};
+function nemStory(t){
+ if(!NEM_STORY[t])return;
+ S.nemStory=S.nemStory||{};
+ if(S.nemStory[t])return;
+ S.nemStory[t]=1;
+ log("◆ "+NEM_STORY[t],"boss");
+}
+function grudgePct(){return Math.min(6,((S.grudge||0))*2);}
 /* ============ 器灵觉醒：专属灵器满词条后可附一条被动 ============ */
 const AWAKEN={
  vamp:{n:"嗜血",d:"造成伤害的 8% 回复生命"},
@@ -648,18 +717,22 @@ function stats(){
  };
 }
 function worldStats(){
- const w=Math.max(0,S.lv-200),d=S.dp||{},ab=artBonus(),dkp0=1+(affDexPct()+(S.nemBonus||0)+nemKillPct())/100;
+ const w=Math.max(0,S.lv-200),d=S.dp||{},ab=artBonus(),rs=artReso();
+ const dkp0=1+(affDexPct()+(S.nemBonus||0)+nemKillPct()+grudgePct())/100;
  let atk=200+w*120+(d.atk||0)*140+(ab.atk||0);
  let def=100+w*25+(d.def||0)*90+(ab.def||0);
  let hpm=6000+w*760+(d.hpm||0)*2400+(ab.hp||0);
  const crit=Math.min(60,8+(d.crit||0)*2+(ab.crit||0));
  const awAtk=awakePct("atk")*12, awHp=awakePct("hp")*15;
  const dkp=dkp0*(1+xmPct()/100);
- atk=Math.round(atk*(1+(ab.atkp||0)/100+awAtk/100)*dkp);def=Math.round(def*(1+(ab.defp||0)/100)*dkp);hpm=Math.round(hpm*(1+(ab.hpp||0)/100+awHp/100)*dkp);
+ const dpA=dpMile("atk")*3,dpD=dpMile("def")*3,dpH=dpMile("hpm")*3,dpC=dpMile("crit")*10;
+ atk=Math.round(atk*(1+(ab.atkp||0)/100+awAtk/100+rs.atkP/100+dpA/100)*dkp);
+ def=Math.round(def*(1+(ab.defp||0)/100+rs.defP/100+dpD/100)*dkp);
+ hpm=Math.round(hpm*(1+(ab.hpp||0)/100+awHp/100+rs.hpP/100+dpH/100)*dkp);
  return {atkMin:Math.round(atk*0.9),atkMax:Math.round(atk*1.1),defMin:Math.round(def),defMax:Math.round(def*1.15),
   hp:Math.round(hpm),spd:6,luck:Math.min(12,Math.round((5+(ab.luck||0))*10)/10),luckRes:4,
-  fix:Math.round(ab.fix||0),amp:ab.amp||0,red:Math.min(70,ab.red||0),ele:0,
-  res:Math.min(40,Math.round((ab.res||0)*10)/10),crit};
+  fix:Math.round(ab.fix||0),amp:r1((ab.amp||0)+rs.amp),red:Math.min(70,r1((ab.red||0)+rs.red+dpMile("def")*2)),ele:0,
+  res:Math.min(40,Math.round((ab.res||0)*10)/10),crit,cdmg:rs.cdmg+dpC};
 }
 function calcPower(st){
  return Math.round(st.atkMin*1.6+st.atkMax*1.9+st.defMin*1.2+st.defMax*1.5+st.hp*0.3
@@ -1260,7 +1333,7 @@ function spawnBoss(){
  setMonAffs(cur,affs);
  S.mode="boss";
  log((nem?"【宿敌】怨气化形的 ":"【BOSS】")+cur.name+" Lv"+mlv+" 现身！"+(affs.length?"词缀【"+monAffText(cur)+"】，"+(nem?"掉落翻倍、必爆极品。":"更凶，也更肥。"):""),"boss");
- if(nem)notice("宿敌寻仇：复仇 "+nt+" 重，掉落 ×"+(2+Math.min(3,nt))+"。","warn");
+ if(nem){notice("宿敌寻仇：复仇 "+nt+" 重，掉落 ×"+(2+Math.min(3,nt))+"。","warn");nemStory(nt);}
  renderMon();
 }
 // 破碎虚空：大世界满级后的终极挑战，天道是本作天花板
@@ -1317,10 +1390,11 @@ function spawn(){
   mlv=Math.round(rnd(m.lv[0],m.lv[1])+(isB?4:0));
  }
  let name=isB?m.boss:pick(m.mobs);
- const mult=isB?3.4:rnd(0.85,1.15);
+ const tf=TIANFA[mapTier()];
+ const mult=(isB?3.4:rnd(0.85,1.15))*tf.mul;
  const p=monPack(mlv,mult,m);
  const horde=worldEvNow()==="horde";
- const eliteChance=S.realm===2?(horde?0.30:0.10):0.08;
+ const eliteChance=(S.realm===2?(horde?0.30:0.10):0.08)+tf.elite;
  const elite=!isB&&Math.random()<eliteChance;
  let affs=[];
  if(elite){
@@ -1352,7 +1426,7 @@ function playerAttack(forceFire){
  let dmg=rnd(st.atkMin,st.atkMax)+st.fix+st.ele;
  dmg*=1+st.amp/100;
  let tag="挥砍";
- if(S.realm===2&&Math.random()*100<(st.crit||8)){dmg*=1.9;tag="暴击！";}
+ if(S.realm===2&&Math.random()*100<(st.crit||8)){dmg*=1.9+(st.cdmg||0)/100;tag="暴击！";}
  if(Math.random()*100<procChance()){dmg*=strikeMul();tag=tag==="暴击！"?"暴击·致命一击！":"致命一击！";}
  let fire=false;
  if((forceFire||CONFIG.autoCast)&&Date.now()>=(S.fireReady||0)&&S.mp>=SKILLS.fire.mp){
@@ -1460,6 +1534,15 @@ function winMonster(){
  }
  if(cur.affs&&cur.affs.length&&affDexAdd(cur.affs))log("◇ 词缀图鉴收录【"+affDexLabel(cur.affs.join("+"))+"】，永久全属性 +0.3%。","drop");
  if(cur.tower){towerWin();S.mode="normal";cur=null;render();save();spawn();return;}
+ if(cur.tian){
+  S.mode="normal";cur=null;S.tgEnd=0;S.hp=stats().hp;S.mp=maxMp();
+  const sp=Math.round((1200+S.lv*10)*CONFIG.spiritRate);
+  S.spirit=(S.spirit||0)+sp;S.crystal+=8;S.mat.enh+=3;
+  if(Math.random()<0.35)S.ticket=(S.ticket||0)+1;
+  log("★ 天关清杀：灵晶 +"+nf(sp)+"、水晶 ×8、强化石 ×3。","gold");
+  notice("天关通过：灵晶 +"+nf(sp),"gold");
+  render();save();spawn();return;
+ }
  if(cur.mirror){
   S.xmWin=(S.xmWin||0)+1;S.mode="normal";cur=null;S.hp=stats().hp;S.mp=maxMp();
   const xsp=Math.round((1200+S.lv*6)*CONFIG.spiritRate);
@@ -1501,14 +1584,14 @@ function winMonster(){
  if(boss)questAdd("boss",1);
  if(S.realm===2){
   const nsp=cur.nemesis?(2+Math.min(3,cur.nemTier||0)):1;
-  const sp=Math.max(0,Math.round((3+Math.floor(Math.max(0,cur.lv-200)/25))*(cur.elite?2:1)*(worldEvNow()==="horde"?1.5:1)*CONFIG.spiritRate*nsp));
+  const sp=Math.max(0,Math.round((3+Math.floor(Math.max(0,cur.lv-200)/25))*(cur.elite?2:1)*(worldEvNow()==="horde"?1.5:1)*TIANFA[mapTier()].drop*CONFIG.spiritRate*nsp));
   S.spirit+=sp;
   if(boss){
   const rich=!!(cur.affs&&cur.affs.length);
   const nt=cur.nemesis?(cur.nemTier||0):0;
   const nb=cur.nemesis?2+Math.min(3,nt):1;
   for(let bi=0;bi<nb;bi++)equipArt(rich?dropArtQ(cur.lv,cur.nemesis?2+Math.min(2,nt):1):dropArt(cur.lv));
-  if(Math.random()<(rich?0.05:0.02)){grantGrowArt();}
+  if(Math.random()<(rich?0.05:0.02)+(mapTier()===2?0.04:0)){grantGrowArt();}
  }else{
   const artCh=(cur.elite?0.2:0)+(cur.affs&&cur.affs.length?0.14:0);
   if(artCh>0&&Math.random()<artCh)equipArt(dropArtQ(cur.lv,cur.elite&&cur.affs&&cur.affs.length?1:0));
@@ -1526,6 +1609,10 @@ function winMonster(){
    S.nemArch.kills++;S.nemArch.best=Math.max(S.nemArch.best||0,cur.nemTier||0);
    const nm2=String(cur.name||"宿敌").replace(/（复仇 \d+ 重）$/,"");
    S.nemArch.byName[nm2]=(S.nemArch.byName[nm2]||0)+1;
+   if((cur.nemTier||0)>=5&&(cur.nemTier||0)%5===0){
+    S.grudge=(S.grudge||0)+1;
+    log("◇ 第 "+cur.nemTier+" 重宿敌凋零，凝出【怨气结晶】×1（永久全属性 +2%，当前 +"+grudgePct()+"%）。","drop");
+   }
    if((S.nemArch.best||0)>=5&&!(S.nemBonus>0)){S.nemBonus=5;
     log("★ 复仇 5 重宿敌授首，获称号【斩仇】：永久全属性 +5%。","gold");
     notice("称号【斩仇】永久全属性 +5%","gold");}
@@ -1581,6 +1668,11 @@ function die(){
 }
 function tick(){
  tickWorldEvent();
+ if(cur&&cur.tian&&S.tgEnd&&Date.now()>=S.tgEnd){
+  log("【天关】时限已到，今日之敌遁入虚空——这次机会作废。","warn");
+  notice("天关失败：30 秒未清杀。","warn");
+  cur=null;S.mode="normal";S.tgEnd=0;render();spawn();
+ }
  if(S.deadEnd){
   if(Date.now()<S.deadEnd){render(false);return;}
   S.deadEnd=0;S.hp=stats().hp;S.mp=maxMp();
@@ -2212,7 +2304,7 @@ function renderMon(){
  $("#monBox").className="mon"+(cur.heaven?" heaven":(cur.boss?" boss":""));
  $("#monName").textContent=(cur.boss&&!cur.heaven?"[BOSS] ":"")+cur.name+(cur.poison>0?"（中毒）":"");
  const affTxt=monAffText(cur);
- $("#monLv").textContent=cur.heaven?"Lv"+cur.lv+" · 天道 · 破碎虚空":("Lv"+cur.lv+" · "+(ELE[cur.ele]||"无")+"系"+(affTxt?" · 词缀 "+affTxt:"")+(cur.shield>0?" · 护盾 "+cur.shield:"")+(expDecay(cur.lv)<1?" · 经验"+Math.round(expDecay(cur.lv)*100)+"%":""));
+ $("#monLv").textContent=(cur.tian&&S.tgEnd?("限时 "+Math.max(0,Math.ceil((S.tgEnd-Date.now())/1000))+"s · "):"")+(cur.heaven?("Lv"+cur.lv+" · 天道 · 破碎虚空"):("Lv"+cur.lv+" · "+(ELE[cur.ele]||"无")+"系"+(affTxt?" · 词缀 "+affTxt:"")+(cur.shield>0?" · 护盾 "+cur.shield:"")+(expDecay(cur.lv)<1?" · 经验"+Math.round(expDecay(cur.lv)*100)+"%":"") ));
  $("#monHp").style.width=Math.max(0,Math.min(100,cur.hp/cur.maxhp*100))+"%";
  $("#monHpTxt").textContent=Math.max(0,Math.round(cur.hp))+" / "+nf(cur.maxhp)+"（"+Math.max(0,Math.round(cur.hp/cur.maxhp*100))+"%）";
 }
@@ -2357,6 +2449,7 @@ function renderChar(){
     const lines=it.affs.map((a,i)=>'<div class="sub lockline" data-k="'+sl+'" data-i="'+i+'" style="cursor:pointer;'+(a.lock?'color:#e0b34a':'')+'">· '+a.n+' +'+a.v+(["atkp","crit","amp","red","hpp","defp","luck","res"].indexOf(a.k)>=0?"%":"")+(a.lock?'  [已锁]':'')+'</div>').join("");
     c.innerHTML='<div class="row"><span style="color:'+["#c9c6bd","#6fce8a","#69a8ff","#f0a04a"][it.q]+'">'+artTitle(it)+'</span><span style="color:#8a877e">评分 '+nf(artScore(it))+'</span></div>'+
      '<div class="sub">'+it.affs.length+'/'+maxAffCount()+' 条词条 · 器级 Lv'+it.lv+'（点词条可锁定，最多锁 '+(maxAffCount()-1)+' 条）</div>'+
+     resoLine(it)+
      (it.grow?'<div class="sub" style="color:'+(it.awake?"#e0b34a":"#6b6870")+'">器灵：'+(it.awake?(AWAKEN[it.awake].n+'（'+AWAKEN[it.awake].d+'）'):"未觉醒")+'</div>':'')+lines;
     const acts=document.createElement("div");acts.className="acts";
     const b=document.createElement("div");b.className="mini b";
@@ -2536,9 +2629,42 @@ function renderWorldGrow(){
   cNem.innerHTML='<div class="row"><span>已斩宿敌 '+(a.kills||0)+' 只</span><span style="color:#e0b34a">永久全属性 +'+pct+'%</span></div>'+
    '<div class="sub">每斩一只宿敌永久 +1% 全属性（上限 10%，当前 '+pct+'/10）。最高复仇 '+(a.best||0)+' 重。</div>'+
    '<div class="sub">'+(S.nemesis?"怨气已成形：下一只 BOSS 会化作【复仇 "+nxt+" 重】宿敌追上来（换地界也甩不掉）。":"再连斩此地 BOSS 五次，怨气就会凝成下一只宿敌（复仇 "+nxt+" 重）。")+'</div>'+nk+
+   '<div class="sub" style="color:'+((S.grudge||0)?"#e0b34a":"#8a877e")+'">怨气结晶：'+(S.grudge||0)+' 枚（永久全属性 +'+grudgePct()+'%，上限 +6%，每 5 重宿敌掉 1 枚）</div>'+
    '<div class="sub" style="color:'+(S.nemBonus?"#e0b34a":"#8a877e")+'">称号：'+(S.nemBonus?("【斩仇】永久全属性 +"+S.nemBonus+"%"):"未获得（斩下复仇 5 重宿敌即可）")+'</div>';
  })();
  box.appendChild(cNem);
+ sec("天罚阶梯","同一地界 · 三档烈度");
+ const cTf=document.createElement("div");cTf.className="card";
+ (function(){
+  const mt0=mapTier(),mm0=curMap();
+  cTf.innerHTML='<div class="row"><span>'+mm0.n+'</span><span style="color:'+["#8a877e","#f0a04a","#ff6b6b"][mt0]+'">'+TIANFA[mt0].n+'</span></div>'+
+   TIANFA.map(t=>'<div class="sub">'+t.n+' · 强度 ×'+t.mul+' · 掉落 ×'+t.drop+(t.elite?' · 精英率 +'+Math.round(t.elite*100)+'%':'')+'</div>').join("")+
+   '<div class="sub">每张地图各自记住档位；绝境的专属灵器机缘 +4%。</div>';
+  const acts=document.createElement("div");acts.className="acts";
+  TIANFA.forEach((t,i)=>{const b=document.createElement("div");b.className="mini "+(mt0===i?"y":"b");b.textContent=t.n;b.onclick=()=>setMapTier(i);acts.appendChild(b);});
+  cTf.appendChild(acts);
+ })();
+ box.appendChild(cTf);
+ sec("限时天关","每日 3 次 · 30 秒清杀");
+ const cTg=document.createElement("div");cTg.className="card";
+ (function(){
+  const tg=tgEnsure(),left=3-tg.used;
+  cTg.innerHTML='<div class="row"><span>今日剩余 '+Math.max(0,left)+' / 3</span><span style="color:#8a877e">Lv300 起</span></div>'+
+   '<div class="sub">今日之敌血量厚、带 3 词缀，30 秒不清杀就遁走；奖励灵晶、水晶 ×8、强化石 ×3，35% 额外保底券。</div>';
+  const acts=document.createElement("div");acts.className="acts";
+  const b2=document.createElement("div");b2.className="mini "+(S.realm===2&&S.lv>=300&&left>0?"r":"off");
+  b2.textContent=S.realm!==2?"需进大世界":(S.lv<300?"需 Lv300":(left>0?"挑战天关":"今日已用完"));
+  b2.onclick=()=>spawnTianGuan();acts.appendChild(b2);cTg.appendChild(acts);
+ })();
+ box.appendChild(cTg);
+ sec("道行里程碑","每 50 层解锁被动");
+ const cDm=document.createElement("div");cDm.className="card";
+ (function(){
+  const rows=[["atk","攻击","+3% 攻击 / 50 层"],["def","防御","+3% 防御、+2% 减伤 / 50 层"],["hpm","生命","+3% 生命 / 50 层"],["crit","暴击","+10% 暴击伤害 / 50 层"]];
+  cDm.innerHTML=rows.map(r=>{const k=r[0],lv=(S.dp||{})[k]||0,mi=dpMile(k),nx=(mi+1)*50;
+   return '<div class="row"><span>'+r[1]+' 里程碑 '+mi+'</span><span style="color:#8a877e">'+lv+' / '+nx+' 层</span></div><div class="sub">'+r[2]+'</div>';}).join("");
+ })();
+ box.appendChild(cDm);
  sec("心魔劫","每 200 级 · 战胜即 +4% 全属性");
  const cXm=document.createElement("div");cXm.className="card";
  (function(){
@@ -2900,7 +3026,7 @@ function normalizeState(o){
  st.ticket=st.ticket||0;st.rerollCnt=st.rerollCnt||0;
  st.tower=Object.assign({lv:1,best:0,end:0},st.tower||{});
  st.quest=st.quest||null;st.affDex=st.affDex||{};st.chain=st.chain||null;st.nemesis=!!st.nemesis;
- st.xmWin=st.xmWin||0;st.nchain=st.nchain||0;st.nemBonus=st.nemBonus||0;st.offReport=st.offReport||null;
+ st.xmWin=st.xmWin||0;st.mapTier=st.mapTier||{};st.grudge=st.grudge||0;st.nemStory=st.nemStory||{};st.nchain=st.nchain||0;st.nemBonus=st.nemBonus||0;st.offReport=st.offReport||null;
  st.nemArch=(st.nemArch&&typeof st.nemArch==="object")?{kills:st.nemArch.kills||0,best:st.nemArch.best||0,byName:st.nemArch.byName||{}}:{kills:0,best:0,byName:{}};
  try{const ak=affDexKeys();Object.keys(st.affDex||{}).forEach(k=>{if(ak.indexOf(k)<0)delete st.affDex[k];});}catch(e){}
  st.worldEv=st.worldEv||null;st.worldEvNext=st.worldEvNext||0;
