@@ -1752,15 +1752,20 @@ function worldEvLeft(){const e=S.worldEv;if(!e)return 0;return Math.max(0,Math.c
 function startWorldEvent(){
  if(S.realm!==2)return;
  const k=pick(Object.keys(WEV));
- S.worldEv={k,end:Date.now()+10*60000};
- S.worldEvNext=Date.now()+Math.round(rnd(8,12))*60000;
- log("【大世界事件】"+WEV[k].n+"："+WEV[k].d+"（持续 10 分钟）","boss");
+ const now=Date.now();
+ S.worldEv={k,end:now+10*60000};
+ S.worldEvNext=S.worldEv.end+Math.round(rnd(8,12))*60000;
+ log("【大世界事件】"+WEV[k].n+"："+WEV[k].d+"（持续 10 分钟，结束后 8-12 分钟再来一场）","boss");
  notice("大世界事件："+WEV[k].n+" —— "+WEV[k].d,"gold");
+}
+function worldEvEnsure(){
+ if(S.realm!==2)return;
+ if(!S.worldEvNext)S.worldEvNext=Date.now()+Math.round(rnd(8,12))*60000;
 }
 function tickWorldEvent(){
  if(S.realm!==2)return;
- if(!S.worldEvNext)S.worldEvNext=Date.now()+Math.round(rnd(5,9))*60000;
- if(Date.now()>=S.worldEvNext)startWorldEvent();
+ worldEvEnsure();
+ if(Date.now()>=S.worldEvNext&&!worldEvNow())startWorldEvent();
 }
 /* ============ 试炼塔 · 500 级到 1000 级 · 50 层 ============ */
 const TOWER_MAX=50;
@@ -2096,7 +2101,15 @@ function render(refreshPanes){
  $("#btnTowerNext").className="btn"+(towerOpen()?"":" off");
  $("#btnTowerNext").textContent=towerOpen()?("第 "+towerNext()+" 层"):"未开放";
  const evK=worldEvNow(),evLine=$("#evLine");
- if(evLine)evLine.textContent=evK?("当前事件：「"+WEV[evK].n+"」"+WEV[evK].d+" · 剩余 "+worldEvLeft()+" 分钟"):("下一场大世界事件约 "+(Math.max(0,Math.ceil(((S.worldEvNext||0)-Date.now())/60000))||5)+" 分钟后");
+ if(evLine){
+  if(S.realm!==2)evLine.textContent="大世界事件：进入大世界后开启（当前"+realmName()+"）";
+  else if(evK)evLine.textContent="当前事件：「"+WEV[evK].n+"」"+WEV[evK].d+" · 剩余 "+worldEvLeft()+" 分钟";
+  else{
+   worldEvEnsure();
+   const left=Math.ceil(((S.worldEvNext||0)-Date.now())/60000);
+   evLine.textContent=left<=0?"下一场大世界事件即将开启":"下一场大世界事件约 "+left+" 分钟后";
+  }
+ }
  if($("#towerPanel")&&$("#towerPanel").style.display!=="none")renderTowerList();
  if(refreshPanes){
   if($("#pane1").classList.contains("on"))renderBag();
