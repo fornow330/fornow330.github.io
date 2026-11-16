@@ -1260,7 +1260,7 @@ function winMonster(){
   if(boss){
   const rich=!!(cur.affs&&cur.affs.length);
   equipArt(rich?dropArtQ(cur.lv,1):dropArt(cur.lv));
-  if(Math.random()<(rich?0.12:0.04)){grantGrowArt();}
+  if(Math.random()<(rich?0.06:0.03)){grantGrowArt();}
  }else{
   const artCh=(cur.elite?0.2:0)+(cur.affs&&cur.affs.length?0.14:0);
   if(artCh>0&&Math.random()<artCh)equipArt(dropArtQ(cur.lv,cur.elite&&cur.affs&&cur.affs.length?1:0));
@@ -1719,7 +1719,7 @@ function doTrial(){
  if(S.realm===2){
   const sp=Math.max(0,Math.round((40+Math.floor((S.lv-200)*1.2))*CONFIG.spiritRate));
   S.spirit+=sp;
-  if(Math.random()<0.06){grantGrowArt();render();save();return;}
+  if(Math.random()<0.02){grantGrowArt();render();save();return;}
   notice("大世界历练完成：灵晶 +"+nf(sp)+"。（秘境深处偶有专属灵器）","gold");
   render();save();return;
  }
