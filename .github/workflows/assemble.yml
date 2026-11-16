@@ -34,8 +34,8 @@ jobs:
             if curl -sfL --max-time 30 "$u" -o /tmp/gpl.txt && head -1 /tmp/gpl.txt | grep -q 'GNU GENERAL PUBLIC LICENSE'; then ok=1; break; fi
           done
           if [ "$ok" != "1" ]; then echo 'license fetch failed'; exit 1; fi
-          printf '传奇文字 (Legend Word)\nCopyright (C) 2026 fornow330\n\n'  > legendword/LICENSE
-          cat /tmp/gpl.txt > > legendword/LICENSE
+          printf '传奇文字 (Legend Word)\nCopyright (C) 2026 fornow330\n\n' > legendword/LICENSE
+          cat /tmp/gpl.txt >> legendword/LICENSE
 
       - name: 提交
         run: |
