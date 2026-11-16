@@ -47,6 +47,10 @@ vitrine/              其他页面资源
 2. 推送到 `main` 分支，Pages 自动更新。
 3. App 下次启动即生效。
 
+## 许可
+
+本仓库按目录分别授权：根页面与说明为 MIT；`legendword/` 为 GPL-3.0（全文见 `legendword/LICENSE`）；`vitrine/` 为 MIT（见 `vitrine/LICENSE`）；`tidy-up/`、`tycoon/` 与工作流配置按根 MIT 授权。完整对照表见根目录 `LICENSE`。
+
 ## 说明
 
 页面本身不依赖任何第三方库、字体或图片；字体走系统字体栈，图标用 CSS 绘制。第三方 CDN 仅在 App 内用于内容竞速，页面直开不受影响。
