@@ -1,7 +1,7 @@
 # fornowAI
 
 一个纯静态的站点入口页：把作者 **fornow** 的几个小游戏与工具聚在同一页，点开即玩。
-线上：<<https://fornow330.github.io/>>
+线上：<https://fornow330.github.io/>
 
 ## 页面里收录的站点
 
