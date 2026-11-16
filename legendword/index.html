@@ -5,10 +5,24 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08080c">
 <title>传奇文字</title>
-<style>html,body{margin:0;padding:0;height:100%;background:#08080c;color:#9a968c;font:13px/1.7 -apple-system,sans-serif;overflow:hidden}#tip{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 24px}#tip a{color:#e0b34a;margin-top:10px}</style>
+<style>
+html,body{margin:0;padding:0;height:100%;background:#08080c;color:#9a968c;font:13px/1.7 -apple-system,"Noto Sans SC",sans-serif;overflow:hidden}
+#tip{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 28px;box-sizing:border-box}
+#tip h1{margin:0 0 18px;font-size:18px;letter-spacing:6px;color:#e0b34a;font-weight:600}
+#bar{width:min(260px,72vw);height:6px;border-radius:3px;background:#1b1a22;overflow:hidden;border:1px solid #2a2833}
+#fill{height:100%;width:0%;background:linear-gradient(90deg,#8c6a2a,#e0b34a);transition:width .18s linear}
+#pct{margin-top:10px;font-size:13px;color:#c9a25a;font-variant-numeric:tabular-nums}
+#st{margin-top:6px;font-size:12px;color:#6b6870;min-height:18px}
+#st a{color:#e0b34a;margin-top:8px;display:inline-block}
+</style>
 </head>
 <body>
-<div id="tip">正在加载传奇文字…</div>
+<div id="tip">
+  <h1>传奇文字</h1>
+  <div id="bar"><div id="fill"></div></div>
+  <div id="pct">0%</div>
+  <div id="st">正在准备…</div>
+</div>
 <script>
 var BUILD = 'c242e861625565e19a8466534bd9152d0698bdd4';
 var FILE = 'game.html';
@@ -21,26 +35,66 @@ var BASES = [
   './'
 ];
 var PAGE = 'https://fornow330.github.io/legendword/';
-function showTip(msg, url){
-  var t = document.getElementById('tip');
-  if(!t) return;
-  t.innerHTML = msg + (url ? ('<a href="' + url + '">点此进入在线版</a>') : '');
+var fillEl = document.getElementById('fill');
+var pctEl = document.getElementById('pct');
+var stEl = document.getElementById('st');
+function setPct(p, text){
+  p = Math.max(0, Math.min(100, Math.round(p)));
+  if (fillEl) fillEl.style.width = p + '%';
+  if (pctEl) pctEl.textContent = p + '%';
+  if (text && stEl) stEl.textContent = text;
+}
+function fail(msg, url){
+  if (!stEl) return;
+  stEl.innerHTML = msg + (url ? ('<br><a href="' + url + '">点此进入在线版</a>') : '');
+  setPct(0);
 }
 function write(html){ document.open(); document.write(html); document.close(); }
-async function loadFrom(base){
-  var r = await fetch(base + FILE + '?v=' + BUILD.slice(0,8), {cache: 'force-cache'});
+function readWithProgress(resp, baseWeight, span){
+  var total = Number(resp.headers.get('content-length') || 0);
+  if (!resp.body || !resp.body.getReader) {
+    return resp.text().then(function(t){ setPct(baseWeight + span); return t; });
+  }
+  var reader = resp.body.getReader();
+  var got = 0, chunks = [];
+  function pump(){
+    return reader.read().then(function(r){
+      if (r.done) {
+        var blob = new Blob(chunks, {type: 'text/html'});
+        return blob.text();
+      }
+      chunks.push(r.value);
+      got += r.value.length;
+      var p = total > 0 ? (got / total) : Math.min(0.92, got / 170000);
+      setPct(baseWeight + span * Math.min(1, p), '正在下载游戏本体 ' + Math.round(got / 1024) + ' KB');
+      return pump();
+    });
+  }
+  return pump();
+}
+async function loadFrom(base, idx, n){
+  var baseWeight = idx / n * 100, span = 100 / n;
+  setPct(baseWeight, '正在连接 CDN ' + (idx + 1) + '/' + n + ' …');
+  var r = await fetch(base + FILE + '?v=' + BUILD.slice(0, 8), {cache: 'force-cache'});
   if (!r.ok) throw new Error('HTTP ' + r.status);
-  var html = await r.text();
+  var html = await readWithProgress(r, baseWeight, span);
   if (!html || html.length < 10000) throw new Error('内容不完整');
   return html;
 }
 (async function(){
   var lastErr = '';
+  setPct(0, '正在准备…');
   for (var i = 0; i < BASES.length; i++) {
-    try{ write(await loadFrom(BASES[i])); return; }
-    catch(e){ lastErr = String(e && e.message ? e.message : e); }
+    try{
+      var html = await loadFrom(BASES[i], i, BASES.length);
+      setPct(100, '加载完成，正在进入…');
+      write(html);
+      return;
+    }catch(e){
+      lastErr = String(e && e.message ? e.message : e);
+    }
   }
-  showTip('加载失败：' + lastErr + '，请检查网络', PAGE);
+  fail('加载失败：' + lastErr + '，请检查网络', PAGE);
 })();
 </script>
 </body>
