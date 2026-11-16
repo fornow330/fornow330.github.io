@@ -88,6 +88,11 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
 .quick .mini{flex:1 1 30%}
 .toast{position:fixed;left:50%;top:47%;transform:translate(-50%,-50%);z-index:99;max-width:84%;padding:8px 13px;border-radius:8px;background:rgba(20,18,26,.96);border:1px solid #4a3d22;color:#f0d093;font-size:12.5px;line-height:1.45;text-align:center;box-shadow:0 8px 22px rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
 .toast.show{opacity:1;transform:translate(-50%,-50%)}
+.modal{position:fixed;inset:0;z-index:98;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:16px}
+.modalCard{width:100%;max-width:420px;background:#12111a;border:1px solid #4a3d22;border-radius:12px;padding:14px 14px 10px;box-shadow:0 10px 30px rgba(0,0,0,.6)}
+.mTitle{color:#f0d093;font-size:14px;margin-bottom:8px;letter-spacing:1px}
+.mBody{color:#c9c6bd;font-size:12.5px;line-height:1.8}
+.mBody b{color:#f0d093;font-weight:400}
 .toast.warn{border-color:#5c2a24;color:#e9a39a}
 .toast.good{border-color:#3d5a3d;color:#9be0a2}
 .dot{display:inline-block;width:7px;height:7px;border-radius:4px;margin-right:4px;border:1px solid #3a3742;background:#151520;vertical-align:middle}
@@ -206,6 +211,16 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
   <div class="tab" data-p="2">角色</div><div class="tab" data-p="3">养成</div>
   <div class="tab" data-p="4">福利</div><div class="tab" data-p="5">设置</div>
 </nav>
+<div id="offModal" class="modal" style="display:none">
+  <div class="modalCard">
+    <div class="mTitle">离线战报</div>
+    <div id="offBody" class="mBody"></div>
+    <div class="acts" style="justify-content:center;margin-top:10px">
+      <div class="mini y" id="btnOffResume">继续挂机</div>
+      <div class="mini b" id="btnOffClose">知道了</div>
+    </div>
+  </div>
+</div>
 <div id="toast" class="toast"></div>
 </div>
 <script>
@@ -361,7 +376,7 @@ function blank(){
   realm:0,dp:{atk:0,def:0,hpm:0,crit:0,pts:6},spirit:0,sealed:null,ascendLose:0,
   art:{weapon:null,armor:null,head:null,neck:null,belt:null,boots:null},artGrow:null,
   ticket:0,rerollCnt:0,tower:{lv:1,best:0,end:0},worldEv:null,worldEvNext:0,
-  quest:null,affDex:{},chain:null,nemesis:false,
+  quest:null,affDex:{},chain:null,nemesis:false,nchain:0,offReport:null,
   skyWin:false,skyTries:0,deadEnd:0
  };
 }
@@ -528,6 +543,7 @@ function bossChainAdd(){
  if(S.chain.n>=5){S.chain={m:mi,n:0};S.nemesis=true;return true;}
  return false;
 }
+function nemTier(){return S.nchain||0;}
 function stats(){
  if(S.realm===2)return worldStats();
  const lv=S.lv,P=S.prestige,ap=S.attr;
@@ -1147,20 +1163,21 @@ function spawnBoss(){
  const m=curMap();
  const mlv=S.realm===2?m.lv[1]:Math.min(230,m.lv[1]+3+Math.floor(S.lv*0.1));
  const nem=!!(S.nemesis&&(!S.chain||S.chain.m===(S.map||0)));
+ const nt=nem?nemTier():0;
  const p=monPack(mlv,3.4,m);
  if(nem){
   S.nemesis=false;
-  p.hp=Math.round(p.hp*1.8);p.atkMin=Math.round(p.atkMin*1.3);p.atkMax=Math.round(p.atkMax*1.35);
-  p.exp=Math.round(p.exp*2);p.gold=Math.round(p.gold*2);
+  p.hp=Math.round(p.hp*(1.8+nt*0.5));p.atkMin=Math.round(p.atkMin*(1.3+nt*0.12));p.atkMax=Math.round(p.atkMax*(1.35+nt*0.12));
+  p.exp=Math.round(p.exp*(2+nt*0.6));p.gold=Math.round(p.gold*(2+nt*0.6));
  }
  const affs=nem?rollMonAffs(3):(S.realm===2?rollMonAffs(rnd(0,1)<0.5?2:1):(Math.random()<0.4?rollMonAffs(1):[]));
- cur={name:nem?"宿敌·"+m.boss:m.boss,lv:mlv,boss:true,nemesis:nem,ele:m.ele,hp:p.hp,maxhp:p.hp,atkMin:p.atkMin,atkMax:p.atkMax,
+ cur={name:nem?("宿敌·"+m.boss+(nt?"（复仇 "+nt+" 重）":"")):m.boss,lv:mlv,boss:true,nemesis:nem,nemTier:nt,ele:m.ele,hp:p.hp,maxhp:p.hp,atkMin:p.atkMin,atkMax:p.atkMax,
   def:p.def,exp:p.exp,gold:p.gold,poison:0,poisonDps:0};
  setMonAffs(cur,affs);
  if(affs.length)affDexAdd(affs);
  S.mode="boss";
  log((nem?"【宿敌】怨气化形的 ":"【BOSS】")+cur.name+" Lv"+mlv+" 现身！"+(affs.length?"词缀【"+monAffText(cur)+"】，"+(nem?"掉落翻倍、必爆极品。":"更凶，也更肥。"):""),"boss");
- if(nem)notice("宿敌现身，掉落翻倍。","warn");
+ if(nem)notice("宿敌现身（复仇 "+(nt+1)+" 重），掉落 ×"+(2+nt)+"。","warn");
  renderMon();
 }
 // 破碎虚空：大世界满级后的终极挑战，天道是本作天花板
@@ -1356,12 +1373,14 @@ function winMonster(){
  if(!boss&&(cur.elite||(cur.affs&&cur.affs.length)))questAdd("aff",1);
  if(boss)questAdd("boss",1);
  if(S.realm===2){
-  const sp=Math.max(0,Math.round((3+Math.floor(Math.max(0,cur.lv-200)/25))*(cur.elite?2:1)*(worldEvNow()==="horde"?1.5:1)*CONFIG.spiritRate*(cur.nemesis?2:1)));
+  const nsp=cur.nemesis?(2+Math.min(3,cur.nemTier||0)):1;
+  const sp=Math.max(0,Math.round((3+Math.floor(Math.max(0,cur.lv-200)/25))*(cur.elite?2:1)*(worldEvNow()==="horde"?1.5:1)*CONFIG.spiritRate*nsp));
   S.spirit+=sp;
   if(boss){
   const rich=!!(cur.affs&&cur.affs.length);
-  const nb=cur.nemesis?2:1;
-  for(let bi=0;bi<nb;bi++)equipArt(rich?dropArtQ(cur.lv,cur.nemesis?2:1):dropArt(cur.lv));
+  const nt=cur.nemesis?(cur.nemTier||0):0;
+  const nb=cur.nemesis?2+Math.min(3,nt):1;
+  for(let bi=0;bi<nb;bi++)equipArt(rich?dropArtQ(cur.lv,cur.nemesis?2+Math.min(2,nt):1):dropArt(cur.lv));
   if(Math.random()<(rich?0.05:0.02)){grantGrowArt();}
  }else{
   const artCh=(cur.elite?0.2:0)+(cur.affs&&cur.affs.length?0.14:0);
@@ -1374,7 +1393,10 @@ function winMonster(){
   if(first&&!boss){S.mat.enh+=2;S.crystal+=3;log("◆ 图鉴点亮【"+name+"】：强化石 ×2、水晶 ×3","drop");}
  }
  if(boss&&!cur.heaven&&!cur.gate&&S.realm===2){
-  if(bossChainAdd())log("你已连斩此地 BOSS 五次，怨气凝成【宿敌】，下次它必来寻仇。","boss");
+  if(cur.nemesis){
+   S.nchain=(S.nchain||0)+1;S.nemesis=true;
+   log("宿敌倒下，怨气未散——复仇链 +1（第 "+S.nchain+" 重），下一只 BOSS 就是更凶的它。","boss");
+  }else if(bossChainAdd())log("你已连斩此地 BOSS 五次，怨气凝成【宿敌】，下次它必来寻仇。","boss");
  }
  if(boss){
   S.bossKills++;S.fame+=5;dailyAdd("boss",1);
@@ -1411,6 +1433,7 @@ function winMonster(){
 }
 function die(){
  if(cur&&cur.tower){towerDie();return;}
+ if(cur&&cur.nemesis&&S.nchain){S.nchain=0;log("复仇链断了：你倒在宿敌刀下，怨气散去。","warn");}
  const wasHeaven=!!(cur&&cur.heaven);
  const lose=Math.floor(S.gold*0.15);S.gold-=lose;
  if(wasHeaven){
@@ -1750,6 +1773,17 @@ function towerNext(){
  return best+1;
 }
 function towerMaxOpen(){return (S.tower.best>=TOWER_MAX)?(TOWER_MAX+towerEndN()+1):TOWER_MAX;}
+function towerRerollCost(f){return Math.round((300+f*40)*CONFIG.spiritRate);}
+function towerPreview(f){const pv=(S.tower&&S.tower.pv)||{};return pv[String(f)]||null;}
+function towerRollPreview(f){
+ const cost=towerRerollCost(f);
+ if((S.spirit||0)<cost){notice("灵晶不够（需 "+nf(cost)+"）。","warn");return;}
+ S.spirit-=cost;
+ const affs=f>TOWER_MAX?rollMonAffs(5):rollMonAffs(towerAffs(f));
+ S.tower.pv=S.tower.pv||{};S.tower.pv[String(f)]=affs;
+ notice("第 "+f+" 层词缀换成【"+affs.map(k=>MAFF[k]).join("·")+"】，进去就打这一套。","good");
+ renderTowerList();save();
+}
 function renderTowerList(){
  const box=$("#towerList");if(!box)return;
  const st=$("#towerState");if(st)st.textContent="已通 "+(S.tower.best||0)+"/"+TOWER_MAX+" 层"+(towerEndN()?" · 浮屠塔 "+towerEndN()+" 层":"");
@@ -1761,11 +1795,22 @@ function renderTowerList(){
   const done=f<=best,next=f===best+1;
   const mlv=towerFloorMlv(f);
   c.innerHTML='<div class="row"><span style="color:'+(done?"#6fce8a":(next?"#f0d093":"#6b6870"))+'">第 '+f+' 层'+(done?"（已通）":"")+'</span><span style="color:#8a877e">Lv'+mlv+' · '+towerAffs(f)+' 词缀</span></div>';
+  const pv=towerPreview(f);
+  const sub=document.createElement("div");sub.className="sub";
+  sub.innerHTML="词缀预告："+(pv?"【"+pv.map(k=>MAFF[k]).join("·")+"】":"随机（"+towerAffs(f)+" 条，进塔才定）");
+  c.appendChild(sub);
   const acts=document.createElement("div");acts.className="acts";
   const b=document.createElement("div");b.className="mini "+(done?"y":(next?"b":"off"));
   b.textContent=done?"再战一层":(next?"挑战":"未解锁");
   if(done||next)b.onclick=()=>{startTower(f);};
-  acts.appendChild(b);c.appendChild(acts);box.appendChild(c);
+  acts.appendChild(b);
+  if(next||done){
+   const rb=document.createElement("div");rb.className="mini "+(S.spirit>=towerRerollCost(f)?"b":"off");
+   rb.textContent="换词缀 "+nf(towerRerollCost(f));
+   rb.onclick=()=>towerRollPreview(f);
+   acts.appendChild(rb);
+  }
+  c.appendChild(acts);box.appendChild(c);
  }
  if(best>=TOWER_MAX){
   const h=document.createElement("div");h.className="sec-t";h.innerHTML="<span>浮屠塔</span><em>无尽 · 每层更强</em>";box.appendChild(h);
@@ -1775,15 +1820,26 @@ function renderTowerList(){
    const c2=document.createElement("div");c2.className="card";
    c2.innerHTML='<div class="row"><span style="color:'+(k===1?"#f0d093":"#6b6870")+'">浮屠第 '+(e+k)+' 层</span>'+
     '<span style="color:#8a877e">强度 ×'+(1+(f-TOWER_MAX)*0.18).toFixed(1)+' · 5 词缀</span></div>';
+   const pv2=towerPreview(f);
+   const sub2=document.createElement("div");sub2.className="sub";
+   sub2.innerHTML="词缀预告："+(pv2?"【"+pv2.map(k=>MAFF[k]).join("·")+"】":"随机（5 条，进塔才定）");
+   c2.appendChild(sub2);
    const acts2=document.createElement("div");acts2.className="acts";
    const b2=document.createElement("div");b2.className="mini "+(k===1?"b":"off");
    b2.textContent=k===1?"挑战":"未解锁";
    if(k===1)b2.onclick=()=>startTower(f);
-   acts2.appendChild(b2);c2.appendChild(acts2);box.appendChild(c2);
+   acts2.appendChild(b2);
+   if(k===1){
+    const rb2=document.createElement("div");rb2.className="mini "+(S.spirit>=towerRerollCost(f)?"b":"off");
+    rb2.textContent="换词缀 "+nf(towerRerollCost(f));
+    rb2.onclick=()=>towerRollPreview(f);
+    acts2.appendChild(rb2);
+   }
+   c2.appendChild(acts2);box.appendChild(c2);
   }
  }
  const tip=document.createElement("div");tip.className="foot";
- tip.textContent="每 10 级一层，共 50 层；首通给灵晶、保底券与强化材料，失败无惩罚。塔顶登临后开启浮屠塔：无限往上，每层强度 +18%，每 3 层再给保底券。";
+ tip.textContent="每 10 级一层，共 50 层；首通给灵晶、保底券与强化材料，失败无惩罚。进塔前可花灵晶刷新本层词缀（点「换词缀」），刷新后只对这一层生效。塔顶登临后开启浮屠塔：无限往上，每层强度 +18%，每 3 层再给保底券。";
  box.appendChild(tip);
 }
 function startTower(f){
@@ -1799,7 +1855,11 @@ function startTower(f){
  cur={name:"试炼塔 · 第"+f+"层",lv:mlv,boss:false,elite:true,tower:f,ele:m.ele,
   hp:p.hp,maxhp:p.hp,atkMin:p.atkMin,atkMax:p.atkMax,def:Math.round(p.def*1.2),
   exp:Math.round(p.exp*0.35),gold:0,poison:0,poisonDps:0};
- const affs=f>TOWER_MAX?rollMonAffs(5):rollMonAffs(towerAffs(f));
+ const needA=f>TOWER_MAX?5:towerAffs(f);
+ const pv=towerPreview(f);
+ let affs=(pv&&pv.length===needA)?pv.slice():null;
+ if(!affs)affs=f>TOWER_MAX?rollMonAffs(5):rollMonAffs(towerAffs(f));
+ if(S.tower.pv)delete S.tower.pv[String(f)];
  setMonAffs(cur,affs);
  affDexAdd(affs);
  S.mode="tower";S.hp=stats().hp;S.mp=maxMp();
@@ -2582,6 +2642,7 @@ function normalizeState(o){
  st.ticket=st.ticket||0;st.rerollCnt=st.rerollCnt||0;
  st.tower=Object.assign({lv:1,best:0,end:0},st.tower||{});
  st.quest=st.quest||null;st.affDex=st.affDex||{};st.chain=st.chain||null;st.nemesis=!!st.nemesis;
+ st.nchain=st.nchain||0;st.offReport=st.offReport||null;
  st.worldEv=st.worldEv||null;st.worldEvNext=st.worldEvNext||0;
  st.soul=st.soul||0;st.soulLv=st.soulLv||0;
  if(!Array.isArray(st.bag))st.bag=[];
@@ -2607,9 +2668,26 @@ function offlineSettle(){
  const p=Math.floor(CONFIG.pointRate*gap*0.6);
  const g=Math.round((S.rate.g||0)*gap*0.5);
  const e=Math.round((S.rate.e||0)*gap*0.5);
+ const lv0=S.lv;
  S.point+=p;S.gold+=g;S.exp+=e;
  while(S.exp>=need(S.lv)&&S.lv<levelCap()){S.exp-=need(S.lv);S.lv++;S.hp=stats().hp;S.mp=maxMp();}
+ S.offReport={min:Math.round(gap/60),p,g,e,up:S.lv-lv0,lv:S.lv};
  if(p||g||e)notice("离线 "+Math.round(gap/60)+" 分钟：泡点 +"+p+"、金币 "+nf(g)+"、经验 "+nf(e)+"。","gold");
+}
+function showOffReport(){
+ const r=S.offReport;if(!r)return;
+ const m=$("#offModal"),b=$("#offBody");
+ if(!m||!b)return;
+ const line=(k,v)=>'<div><span style="color:#8a877e">'+k+'</span> <b>'+v+'</b></div>';
+ b.innerHTML=line("离线时长",r.min+" 分钟")+line("泡点",nf(r.p))+line("金币",nf(r.g))+
+  line("经验",nf(r.e))+(r.up?"<div>等级 <b>+"+r.up+"（现 Lv"+r.lv+"）</b></div>":"")+
+  '<div style="margin-top:8px;color:#8a877e">离线按在线收益的 60% 折算，最长结算 8 小时。</div>';
+ m.style.display="flex";
+ const resume=$("#btnOffResume"),close=$("#btnOffClose");
+ if(resume)resume.onclick=()=>{m.style.display="none";S.auto=true;CONFIG.autoFight=true;
+  const ba=$("#btnAuto");if(ba){ba.textContent="自动挂机：开";ba.className="btn on";}
+  S.offReport=null;save();toast("继续挂机。","good");};
+ if(close)close.onclick=()=>{m.style.display="none";S.offReport=null;save();};
 }
 function copyText(txt){
  try{if(typeof navigator!=="undefined"&&navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).catch(()=>{});return true;}}catch(e){}
@@ -2800,6 +2878,7 @@ function boot(){
  if(ok){
   log("读取存档：Lv"+S.lv+(S.prestige?" "+S.prestige+"转":"")+"，金币 "+nf(S.gold)+"，水晶 "+nf(S.crystal)+"。","gold");
   offlineSettle();
+  showOffReport();
  }else{
   starterKit();
   S.hp=stats().hp;S.mp=80;
