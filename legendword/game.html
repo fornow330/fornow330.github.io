@@ -378,7 +378,7 @@ function blank(){
   art:{weapon:null,armor:null,head:null,neck:null,belt:null,boots:null},artGrow:null,
   ticket:0,rerollCnt:0,tower:{lv:1,best:0,end:0},worldEv:null,worldEvNext:0,
   quest:null,affDex:{},chain:null,nemesis:false,nchain:0,offReport:null,
-  skyWin:false,skyTries:0,deadEnd:0
+  skyWin:false,skyTries:0,deadEnd:0,xmWin:0
  };
 }
 let S=blank();
@@ -551,7 +551,75 @@ function bossChainAdd(){
  return false;
 }
 function nemTier(){return (S.nchain||0)+1;}          // 下一只宿敌的复仇重数：首只=1 重
-function nemKillPct(){const k=(S.nemArch&&S.nemArch.kills)||0;return Math.min(10,k);} // 每斩一只宿敌 +1% 全属性，上限 10%
+function nemKillPct(){const k=(S.nemArch&&S.nemArch.kills)||0;return Math.min(10,k);}
+/* ============ 器灵觉醒：专属灵器满词条后可附一条被动 ============ */
+const AWAKEN={
+ vamp:{n:"嗜血",d:"造成伤害的 8% 回复生命"},
+ atk :{n:"锋锐",d:"攻击 +12%"},
+ hp  :{n:"磐石",d:"生命 +15%"},
+ combo:{n:"疾风",d:"12% 概率追加一击"}
+};
+function awakeKeys(){return ART_KINDS.map(k=>{const it=(S.art||{})[k];return it&&it.grow&&it.awake?it.awake:null;}).filter(Boolean);}
+function awakePct(key){return awakeKeys().filter(x=>x===key).length;}
+function canAwake(it){return !!(it&&it.grow&&!it.awake&&it.affs.length>=maxAffCount());}
+function awakeCost(it){return Math.round(400*(it.q+1)*(it.sub+1));}
+function awakeState(it){return it&&it.grow?(it.awake?{"n":AWAKEN[it.awake].n,"d":AWAKEN[it.awake].d}:null):null;}
+function awakenArt(sl){
+ const it=(S.art||{})[sl];
+ if(!it||!it.grow){notice("只有专属灵器能觉醒器灵。","warn");return;}
+ if(it.awake){notice("这件灵器的器灵已觉醒。","warn");return;}
+ if(!canAwake(it)){notice("词条未满（"+it.affs.length+"/"+maxAffCount()+"），器灵还不肯醒。","warn");return;}
+ const c=awakeCost(it);
+ if((S.spirit||0)<c){notice("灵晶不足，觉醒需 "+nf(c)+"。","warn");return;}
+ S.spirit-=c;
+ const pool=Object.keys(AWAKEN).filter(k=>awakePct(k)<2);
+ const key=(pool.length?pool:Object.keys(AWAKEN))[Math.floor(Math.random()*(pool.length?pool.length:4))];
+ it.awake=key;
+ log("✦ 器灵觉醒："+artTitle(it)+" 附灵【"+AWAKEN[key].n+"】——"+AWAKEN[key].d+"。","gold");
+ notice("器灵觉醒【"+AWAKEN[key].n+"】："+AWAKEN[key].d,"gold");
+ render();save();
+}
+/* ============ 心魔劫：每 200 级引来一次自己的镜像 ============ */
+function xmNextLv(){return ((S.xmWin||0)+1)*200;}
+function xmPct(){return Math.min(20,(S.xmWin||0)*4);}
+function spawnMirror(){
+ if(S.realm!==2){notice("心魔只在大世界显形。","warn");return;}
+ if(S.lv<xmNextLv()){notice("需修到 Lv"+xmNextLv()+" 才能引来下一重心魔（当前 Lv"+S.lv+"）。","warn");return;}
+ if(cur&&cur.hp>0&&cur.mirror){notice("心魔还在眼前，先打完。","warn");return;}
+ const st=stats();
+ const hp=Math.round(st.hp*1.15),atm=Math.round(st.atkMax*0.85);
+ cur={name:"心魔·你的镜像",lv:S.lv,boss:true,mirror:true,ele:0,hp:hp,maxhp:hp,
+  atkMin:Math.round(atm*0.9),atkMax:atm,def:Math.round(st.defMax*0.8),exp:0,gold:0,poison:0,poisonDps:0};
+ S.mode="boss";S.hp=st.hp;S.mp=maxMp();
+ try{const lg=$("#log");if(lg)lg.innerHTML="";}catch(e){}
+ goPanel("0");
+ log("【心魔劫】第 "+((S.xmWin||0)+1)+" 重镜像自你心底立起：生命 "+nf(hp)+"、一击 "+nf(atm)+"。","boss");
+ notice("心魔现身：赢下它，永久 +4% 全属性（已 "+xmPct()+"%）。","warn");
+ renderMon();render();save();
+}
+/* ============ 大世界秘境三层 ============ */
+const MIJING=[
+ {n:"一层·外围",lv:200,mul:1.0,sp:1.0,art:0.06},
+ {n:"二层·深处",lv:320,mul:1.7,sp:2.2,art:0.14},
+ {n:"三层·绝地",lv:500,mul:2.6,sp:4.0,art:0.26}
+];
+function spawnMijing(layer){
+ const cfg=MIJING[layer-1];
+ if(S.realm!==2){notice("秘境深处只在大世界开放。","warn");return;}
+ if(S.lv<cfg.lv){notice("需 Lv"+cfg.lv+" 才能进"+cfg.n+"。","warn");return;}
+ if(Date.now()<(S.trialReady||0)){notice("历练冷却中，还要 "+Math.ceil((S.trialReady-Date.now())/1000)+" 秒。","warn");return;}
+ S.trialReady=Date.now()+120000;
+ const m=curMap();
+ const p=monPack(Math.min(230,S.lv+6*layer),2.6+layer*0.6,m);
+ const hp=Math.round(p.hp*cfg.mul*2), atk=Math.round(p.atkMax*cfg.mul);
+ cur={name:"秘境守卫·"+cfg.n,lv:Math.min(230,S.lv+6*layer),boss:true,mijing:layer,ele:m.ele,
+  hp:hp,maxhp:hp,atkMin:Math.round(atk*0.9),atkMax:atk,def:Math.round(p.def*cfg.mul),exp:p.exp,gold:p.gold,poison:0,poisonDps:0};
+ setMonAffs(cur,rollMonAffs(1+layer));
+ S.mode="boss";goPanel("0");
+ log("【秘境】你踏入"+cfg.n+"，守卫现身：生命 "+nf(hp)+"、一击 "+nf(atk)+"，词缀【"+monAffText(cur)+"】。","boss");
+ notice("秘境"+cfg.n+"：灵晶 ×"+cfg.sp+"、器灵机缘 "+Math.round(cfg.art*100)+"%","warn");
+ renderMon();render();save();
+} // 每斩一只宿敌 +1% 全属性，上限 10%
 function stats(){
  if(S.realm===2)return worldStats();
  const lv=S.lv,P=S.prestige,ap=S.attr;
@@ -578,12 +646,14 @@ function stats(){
  };
 }
 function worldStats(){
- const w=Math.max(0,S.lv-200),d=S.dp||{},ab=artBonus(),dkp=1+(affDexPct()+(S.nemBonus||0)+nemKillPct())/100;
+ const w=Math.max(0,S.lv-200),d=S.dp||{},ab=artBonus(),dkp0=1+(affDexPct()+(S.nemBonus||0)+nemKillPct())/100;
  let atk=200+w*120+(d.atk||0)*140+(ab.atk||0);
  let def=100+w*25+(d.def||0)*90+(ab.def||0);
  let hpm=6000+w*760+(d.hpm||0)*2400+(ab.hp||0);
  const crit=Math.min(60,8+(d.crit||0)*2+(ab.crit||0));
- atk=Math.round(atk*(1+(ab.atkp||0)/100)*dkp);def=Math.round(def*(1+(ab.defp||0)/100)*dkp);hpm=Math.round(hpm*(1+(ab.hpp||0)/100)*dkp);
+ const awAtk=awakePct("atk")*12, awHp=awakePct("hp")*15;
+ const dkp=dkp0*(1+xmPct()/100);
+ atk=Math.round(atk*(1+(ab.atkp||0)/100+awAtk/100)*dkp);def=Math.round(def*(1+(ab.defp||0)/100)*dkp);hpm=Math.round(hpm*(1+(ab.hpp||0)/100+awHp/100)*dkp);
  return {atkMin:Math.round(atk*0.9),atkMax:Math.round(atk*1.1),defMin:Math.round(def),defMax:Math.round(def*1.15),
   hp:Math.round(hpm),spd:6,luck:Math.min(12,Math.round((5+(ab.luck||0))*10)/10),luckRes:4,
   fix:Math.round(ab.fix||0),amp:ab.amp||0,red:Math.min(70,ab.red||0),ele:0,
@@ -1297,6 +1367,15 @@ function playerAttack(forceFire){
  }
  cur.hp-=dmg;
  log("你对【"+cur.name+"】"+tag+"，造成 "+dmg+" 伤害。",tag==="致命一击！"?"gold":(fire?"good":""));
+ if(awakePct("vamp")>0){
+  const heal=Math.round(dmg*0.08);
+  if(heal>0&&S.hp<st.hp){S.hp=Math.min(st.hp,S.hp+heal);log("【嗜血】回复 "+heal+" 生命。","good");}
+ }
+ if(awakePct("combo")>0&&cur.hp>0&&Math.random()<0.12){
+  const again=Math.max(1,Math.round((rnd(st.atkMin,st.atkMax)+st.fix)*0.6));
+  cur.hp-=again;
+  log("【疾风】追加一击，造成 "+again+" 伤害。","good");
+ }
  if(cur.affs&&cur.affs.indexOf("thorn")>=0&&dmg>0){
   const rb=Math.round(dmg*0.3);
   S.hp-=rb;if(S.hp<0)S.hp=0;
@@ -1379,6 +1458,26 @@ function winMonster(){
  }
  if(cur.affs&&cur.affs.length&&affDexAdd(cur.affs))log("◇ 词缀图鉴收录【"+affDexLabel(cur.affs.join("+"))+"】，永久全属性 +0.3%。","drop");
  if(cur.tower){towerWin();S.mode="normal";cur=null;render();save();spawn();return;}
+ if(cur.mirror){
+  S.xmWin=(S.xmWin||0)+1;S.mode="normal";cur=null;S.hp=stats().hp;S.mp=maxMp();
+  const xsp=Math.round((1200+S.lv*6)*CONFIG.spiritRate);
+  S.spirit=(S.spirit||0)+xsp;
+  log("★ 心魔溃散：第 "+S.xmWin+" 重淬体完成，永久全属性 +4%（当前 +"+xmPct()+"%），灵晶 +"+nf(xsp)+"。","gold");
+  notice("心魔已斩（"+S.xmWin+"/5 重），永久全属性 +"+xmPct()+"%","gold");
+  render();save();spawn();return;
+ }
+ if(cur.mijing){
+  const cfg=MIJING[(cur.mijing||1)-1]||MIJING[0];
+  const layer=cur.mijing||1;
+  S.mode="normal";cur=null;S.hp=stats().hp;S.mp=maxMp();
+  const sp=Math.round((60+Math.floor((S.lv-200)*1.6))*cfg.sp*CONFIG.spiritRate);
+  S.spirit=(S.spirit||0)+sp;
+  S.crystal+=4*layer;S.mat.enh+=2*layer;
+  log("【秘境】"+cfg.n+" 清空：灵晶 +"+nf(sp)+"、水晶 ×"+(4*layer)+"、强化石 ×"+(2*layer)+"。","gold");
+  if(Math.random()<cfg.art){grantGrowArt();}
+  else notice("秘境"+cfg.n+" 通过：灵晶 +"+nf(sp),"gold");
+  render();save();spawn();return;
+ }
  const boss=cur.boss,name=cur.name;
  const decay=expDecay(cur.lv);
  const gain=Math.round(cur.exp*decay*(worldEvNow()==="tide"?1.5:1));
@@ -1418,7 +1517,7 @@ function winMonster(){
   S.dex[name]=(S.dex[name]||0)+1;
   if(first&&!boss){S.mat.enh+=2;S.crystal+=3;log("◆ 图鉴点亮【"+name+"】：强化石 ×2、水晶 ×3","drop");}
  }
- if(boss&&!cur.heaven&&!cur.gate&&S.realm===2){
+ if(boss&&!cur.heaven&&!cur.gate&&!cur.mirror&&!cur.mijing&&S.realm===2){
   if(cur.nemesis){
    S.nchain=(S.nchain||0)+1;S.nemesis=true;
    S.nemArch=S.nemArch||{kills:0,best:0,byName:{}};
@@ -1985,7 +2084,9 @@ function pointToGold(){
  S.gold+=gain;dailyAdd("gold",gain);
  notice("用 "+p+" 泡点换 "+nf(gain)+" 金币。","gold");render();save();
 }
-function doTrial(){
+function doTrial(layer){
+ layer=Number(layer)||1;
+ if(layer>1){spawnMijing(layer);return;}
  if(Date.now()<(S.trialReady||0)){notice("历练冷却中，还要 "+Math.ceil((S.trialReady-Date.now())/1000)+" 秒。","warn");return;}
  S.trialReady=Date.now()+120000;
  if(S.realm===2){
@@ -2253,11 +2354,19 @@ function renderChar(){
    }else{
     const lines=it.affs.map((a,i)=>'<div class="sub lockline" data-k="'+sl+'" data-i="'+i+'" style="cursor:pointer;'+(a.lock?'color:#e0b34a':'')+'">· '+a.n+' +'+a.v+(["atkp","crit","amp","red","hpp","defp","luck","res"].indexOf(a.k)>=0?"%":"")+(a.lock?'  [已锁]':'')+'</div>').join("");
     c.innerHTML='<div class="row"><span style="color:'+["#c9c6bd","#6fce8a","#69a8ff","#f0a04a"][it.q]+'">'+artTitle(it)+'</span><span style="color:#8a877e">评分 '+nf(artScore(it))+'</span></div>'+
-     '<div class="sub">'+it.affs.length+'/'+maxAffCount()+' 条词条 · 器级 Lv'+it.lv+'（点词条可锁定，最多锁 '+(maxAffCount()-1)+' 条）</div>'+lines;
+     '<div class="sub">'+it.affs.length+'/'+maxAffCount()+' 条词条 · 器级 Lv'+it.lv+'（点词条可锁定，最多锁 '+(maxAffCount()-1)+' 条）</div>'+
+     (it.grow?'<div class="sub" style="color:'+(it.awake?"#e0b34a":"#6b6870")+'">器灵：'+(it.awake?(AWAKEN[it.awake].n+'（'+AWAKEN[it.awake].d+'）'):"未觉醒")+'</div>':'')+lines;
     const acts=document.createElement("div");acts.className="acts";
     const b=document.createElement("div");b.className="mini b";
     b.textContent=(it.grow?"专属重铸 ":"重铸 ")+nf(rerollArtCost(it))+" 灵晶"+(worldEvNow()==="smith"?"（半价）":"");
     b.onclick=()=>rerollArt(sl);acts.appendChild(b);
+    if(it.grow){
+     const aw=awakeState(it);
+     const ab=document.createElement("div");ab.className="mini "+(it.awake?"y":(canAwake(it)?"g":"off"));
+     ab.textContent=it.awake?("器灵·"+aw.n):(canAwake(it)?("器灵觉醒 "+nf(awakeCost(it))+" 灵晶"):"器灵未醒（词条未满）");
+     ab.onclick=()=>awakenArt(sl);
+     acts.appendChild(ab);
+    }
     if((S.ticket||0)>0){
      const tb=document.createElement("div");tb.className="mini y";
      tb.textContent="用券定向洗（"+S.ticket+"）";
@@ -2428,6 +2537,39 @@ function renderWorldGrow(){
    '<div class="sub" style="color:'+(S.nemBonus?"#e0b34a":"#8a877e")+'">称号：'+(S.nemBonus?("【斩仇】永久全属性 +"+S.nemBonus+"%"):"未获得（斩下复仇 5 重宿敌即可）")+'</div>';
  })();
  box.appendChild(cNem);
+ sec("心魔劫","每 200 级 · 战胜即 +4% 全属性");
+ const cXm=document.createElement("div");cXm.className="card";
+ (function(){
+  const nm=Math.min(5,(S.xmWin||0)), nx=xmNextLv();
+  const ok=S.lv>=nx&&S.realm===2;
+  cXm.innerHTML='<div class="row"><span>已斩心魔 '+nm+'/5 重</span><span style="color:#e0b34a">永久全属性 +'+xmPct()+'%</span></div>'+
+   '<div class="sub">心魔是你的镜像：血量约你 1.15 倍、攻击约你 0.85 倍，还会带着你当前的器灵被动打你。赢一重永久 +4% 全属性（5 重封顶 +20%）。</div>'+
+   '<div class="sub">下一重门槛：Lv'+nx+'（当前 Lv'+S.lv+'）'+(nm>=5?" · 已达 5 重上限":"")+'</div>';
+  const acts=document.createElement("div");acts.className="acts";
+  const b=document.createElement("div");b.className="mini "+(ok&&nm<5?"r":"off");
+  b.textContent=nm>=5?"已破 5 重心魔":(ok?"引来心魔":"需 Lv"+nx);
+  b.onclick=()=>spawnMirror();
+  acts.appendChild(b);cXm.appendChild(acts);
+ })();
+ box.appendChild(cXm);
+ sec("秘境三层","历练副本 · 越深越肥");
+ const cMj=document.createElement("div");cMj.className="card";
+ (function(){
+  const tLeft=Math.max(0,Math.ceil(((S.trialReady||0)-Date.now())/1000));
+  cMj.innerHTML='<div class="sub">冷却 '+(tLeft>0?tLeft+" 秒":"就绪")+' · 一层为即时结算，二/三层要与守卫真打一场（带词缀，强度显著高于外界）。</div>'+
+   MIJING.map((c,i)=>'<div class="sub">'+(i+1)+'. '+c.n+' · 需 Lv'+c.lv+' · 灵晶 ×'+c.sp+' · 器灵机缘 '+Math.round(c.art*100)+'%</div>').join("");
+  const acts=document.createElement("div");acts.className="acts";
+  MIJING.forEach((c,i)=>{
+   const b=document.createElement("div");
+   const ok2=S.realm===2&&S.lv>=c.lv&&tLeft<=0;
+   b.className="mini "+(ok2?"g":"off");
+   b.textContent=(i+1)+"层"+(S.lv>=c.lv?"":"（需 Lv"+c.lv+"）");
+   b.onclick=()=>doTrial(i+1);
+   acts.appendChild(b);
+  });
+  cMj.appendChild(acts);
+ })();
+ box.appendChild(cMj);
  sec("灵器","武器/甲/头巾/项链/腰带/鞋子 · 词条全随机");
  const c1=document.createElement("div");c1.className="card";
  const w1=(S.art||{}).weapon, a1=(S.art||{}).armor;
@@ -2756,7 +2898,7 @@ function normalizeState(o){
  st.ticket=st.ticket||0;st.rerollCnt=st.rerollCnt||0;
  st.tower=Object.assign({lv:1,best:0,end:0},st.tower||{});
  st.quest=st.quest||null;st.affDex=st.affDex||{};st.chain=st.chain||null;st.nemesis=!!st.nemesis;
- st.nchain=st.nchain||0;st.nemBonus=st.nemBonus||0;st.offReport=st.offReport||null;
+ st.xmWin=st.xmWin||0;st.nchain=st.nchain||0;st.nemBonus=st.nemBonus||0;st.offReport=st.offReport||null;
  st.nemArch=(st.nemArch&&typeof st.nemArch==="object")?{kills:st.nemArch.kills||0,best:st.nemArch.best||0,byName:st.nemArch.byName||{}}:{kills:0,best:0,byName:{}};
  try{const ak=affDexKeys();Object.keys(st.affDex||{}).forEach(k=>{if(ak.indexOf(k)<0)delete st.affDex[k];});}catch(e){}
  st.worldEv=st.worldEv||null;st.worldEvNext=st.worldEvNext||0;
