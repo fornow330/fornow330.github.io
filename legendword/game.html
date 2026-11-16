@@ -198,6 +198,7 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
     <div id="recCfg"></div>
     <div class="sec-t">存档 <em>换手机、备份用</em></div>
     <div class="card">
+      <div class="sub" id="saveWhere">自动存档位置：浏览器本地存储（App 内写入手机私有目录并留一份备份，关掉再开不会丢）。</div>
       <div class="sub">这串是你的存档，复制保存好；换手机粘进去点导入。</div>
       <textarea id="saveBox" rows="4" spellcheck="false"></textarea>
       <div class="acts"><div class="mini b" id="btnExport">导出并复制</div><div class="mini g" id="btnImport">从框里导入</div></div>
@@ -2700,7 +2701,13 @@ function applyRuntime(key){
  if(key===undefined||key==="autoFight"){
   if(S.lv<=5&&Object.keys(S.eq||{}).length===0)starterKit();
  S.auto=CONFIG.autoFight;
-  $("#btnAuto").textContent="自动挂机："+(S.auto?"开":"关");
+  const sw=$("#saveWhere");
+ if(sw){
+  let where="浏览器本地存储";
+  try{if(window.NativeStore&&NativeStore.save)where="手机私有目录（带备份）";}catch(e){}
+  sw.textContent="自动存档位置："+where+"。每次存档同时写备份，异常退出也能读回上一份。";
+ }
+ $("#btnAuto").textContent="自动挂机："+(S.auto?"开":"关");
   $("#btnAuto").className="btn"+(S.auto?" on":"");
  }
 }
@@ -2712,7 +2719,12 @@ function restartTimers(){
   S.point+=CONFIG.pointRate/60*CONFIG.saveSec;
  },Math.max(1,CONFIG.saveSec)*1000);
 }
-function save(){S.offTs=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function save(){
+ S.offTs=Date.now();
+ const js=JSON.stringify(S);
+ try{localStorage.setItem(KEY,js);}catch(e){}
+ try{if(window.NativeStore&&NativeStore.save)NativeStore.save(js);}catch(e){}
+}
 function normalizeState(o){
  const b=blank();
  const st=Object.assign(b,o||{});
@@ -2755,10 +2767,18 @@ function normalizeState(o){
  return st;
 }
 function load(){
- try{const raw=localStorage.getItem(KEY);if(!raw)return false;const o=JSON.parse(raw);
-  if(!o||typeof o.lv!=="number")return false;
-  S=normalizeState(o);
+ const parse=(raw)=>{try{if(!raw)return null;const o=JSON.parse(raw);if(!o||typeof o.lv!=="number")return null;return o;}catch(e){return null;}};
+ let ls=null,ns=null;
+ try{ls=parse(localStorage.getItem(KEY));}catch(e){}
+ try{if(window.NativeStore&&NativeStore.load)ns=parse(NativeStore.load());}catch(e){}
+ const score=(o)=>o?(Number(o.offTs)||0):-1;
+ const pick=(score(ns)>score(ls)?ns:ls)||ls||ns;
+ if(!pick)return false;
+ try{
+  S=normalizeState(pick);
   S.mode="normal";cur=null;
+  try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+  try{if(window.NativeStore&&NativeStore.save)NativeStore.save(JSON.stringify(S));}catch(e){}
   return true;
  }catch(e){return false;}
 }
@@ -2848,6 +2868,7 @@ function starterKit(){
 function resetAll(){
  if(!confirm("确定清空存档重来吗？调参解锁状态保留。"))return;
  try{localStorage.removeItem(KEY);}catch(e){}
+ try{if(window.NativeStore&&NativeStore.clear)NativeStore.clear();}catch(e){}
  S=blank();cur=null;sitReady=0;rateAcc={g:0,e:0,ms:0};
  starterKit();
  $("#log").innerHTML="";spawn();renderChips();render();
