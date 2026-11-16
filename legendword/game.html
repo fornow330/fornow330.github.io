@@ -133,8 +133,15 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
     </div>
     <div class="btns">
       <div class="btn" id="btnTower">试炼塔</div>
-      <div class="btn" id="btnTowerNext">下一层</div>
     </div>
+    <div class="quick">
+      <div class="mini b" id="btnTf0">常态</div>
+      <div class="mini b" id="btnTf1">凶险</div>
+      <div class="mini b" id="btnTf2">绝境</div>
+      <div class="mini r" id="btnTg">天关</div>
+      <div class="mini r" id="btnXm">心魔</div>
+    </div>
+    <div id="battleHint" class="sub" style="padding:2px 4px 6px;color:#8a877e"></div>
     <div id="evLine" class="sub" style="padding:2px 4px 6px;color:#8a877e"></div>
     <div id="towerPanel" style="display:none">
       <div class="sec-t">试炼塔 · 500 级起 <em id="towerState"></em></div>
@@ -586,7 +593,7 @@ function resoLine(it){
 }
 function dpMile(k){return Math.floor((((S.dp||{})[k])||0)/50);}
 /* ============ 限时天关：每日 3 次，30 秒内清杀 ============ */
-function tgEnsure(){if(!S.tg||S.tg.d!==dayKey())S.tg={d:dayKey(),used:0};return S.tg;}
+function tgEnsure(){if(!S.tg||S.tg.d!==dayKey())S.tg={d:dayKey(),used:0};else if(typeof S.tg.used!=="number")S.tg.used=0;return S.tg;}
 function spawnTianGuan(){
  if(S.realm!==2){notice("天关只在大世界开启。","warn");return;}
  if(S.lv<300){notice("需 Lv300 才能挑战天关。","warn");return;}
@@ -2353,8 +2360,20 @@ function render(refreshPanes){
  $("#btnTrial").textContent=tLeft>0?"历练 "+tLeft+"s":"历练副本";
  $("#btnTower").className="btn"+(towerOpen()?"":" off");
  $("#btnTower").textContent=towerOpen()?("试炼塔 "+(S.tower.best||0)+"/50"):"试炼塔（500级）";
- $("#btnTowerNext").className="btn"+(towerOpen()?"":" off");
- $("#btnTowerNext").textContent=towerOpen()?("第 "+towerNext()+" 层"):"未开放";
+ (function(){
+  const mt0=mapTier();
+  [0,1,2].forEach(i=>{const b=$("#btnTf"+i);if(!b)return;b.className="mini "+(mt0===i?"y":"b");b.textContent=TIANFA[i].n;});
+  const tg0=tgEnsure(),left0=Math.max(0,3-((tg0&&tg0.used)||0)),tgB=$("#btnTg");
+  if(tgB){const okTg=S.realm===2&&S.lv>=300&&left0>0;
+   tgB.className="mini "+(okTg?"r":"off");
+   tgB.textContent=left0<=0?"天关 0/3":("天关 "+left0+"/3");}
+  const xmB=$("#btnXm"),nm0=Math.min(5,S.xmWin||0);
+  if(xmB){const okXm=S.realm===2&&S.lv>=xmNextLv()&&nm0<5;
+   xmB.className="mini "+(okXm?"r":"off");
+   xmB.textContent="心魔 "+nm0+"/5";}
+  const bh=$("#battleHint");
+  if(bh)bh.textContent="天罚："+TIANFA[mt0].n+"（强度 ×"+TIANFA[mt0].mul+"、掉落 ×"+TIANFA[mt0].drop+"）· 天关每日 3 次 30 秒 · 心魔每 200 级";
+ })();
  const evK=worldEvNow(),evLine=$("#evLine");
  const evAct=(S.evAct&&S.evAct.k===evK)?S.evAct:null;
  if(evLine){
@@ -2633,30 +2652,6 @@ function renderWorldGrow(){
    '<div class="sub" style="color:'+(S.nemBonus?"#e0b34a":"#8a877e")+'">称号：'+(S.nemBonus?("【斩仇】永久全属性 +"+S.nemBonus+"%"):"未获得（斩下复仇 5 重宿敌即可）")+'</div>';
  })();
  box.appendChild(cNem);
- sec("天罚阶梯","同一地界 · 三档烈度");
- const cTf=document.createElement("div");cTf.className="card";
- (function(){
-  const mt0=mapTier(),mm0=curMap();
-  cTf.innerHTML='<div class="row"><span>'+mm0.n+'</span><span style="color:'+["#8a877e","#f0a04a","#ff6b6b"][mt0]+'">'+TIANFA[mt0].n+'</span></div>'+
-   TIANFA.map(t=>'<div class="sub">'+t.n+' · 强度 ×'+t.mul+' · 掉落 ×'+t.drop+(t.elite?' · 精英率 +'+Math.round(t.elite*100)+'%':'')+'</div>').join("")+
-   '<div class="sub">每张地图各自记住档位；绝境的专属灵器机缘 +4%。</div>';
-  const acts=document.createElement("div");acts.className="acts";
-  TIANFA.forEach((t,i)=>{const b=document.createElement("div");b.className="mini "+(mt0===i?"y":"b");b.textContent=t.n;b.onclick=()=>setMapTier(i);acts.appendChild(b);});
-  cTf.appendChild(acts);
- })();
- box.appendChild(cTf);
- sec("限时天关","每日 3 次 · 30 秒清杀");
- const cTg=document.createElement("div");cTg.className="card";
- (function(){
-  const tg=tgEnsure(),left=3-tg.used;
-  cTg.innerHTML='<div class="row"><span>今日剩余 '+Math.max(0,left)+' / 3</span><span style="color:#8a877e">Lv300 起</span></div>'+
-   '<div class="sub">今日之敌血量厚、带 3 词缀，30 秒不清杀就遁走；奖励灵晶、水晶 ×8、强化石 ×3，35% 额外保底券。</div>';
-  const acts=document.createElement("div");acts.className="acts";
-  const b2=document.createElement("div");b2.className="mini "+(S.realm===2&&S.lv>=300&&left>0?"r":"off");
-  b2.textContent=S.realm!==2?"需进大世界":(S.lv<300?"需 Lv300":(left>0?"挑战天关":"今日已用完"));
-  b2.onclick=()=>spawnTianGuan();acts.appendChild(b2);cTg.appendChild(acts);
- })();
- box.appendChild(cTg);
  sec("道行里程碑","每 50 层解锁被动");
  const cDm=document.createElement("div");cDm.className="card";
  (function(){
@@ -2665,21 +2660,6 @@ function renderWorldGrow(){
    return '<div class="row"><span>'+r[1]+' 里程碑 '+mi+'</span><span style="color:#8a877e">'+lv+' / '+nx+' 层</span></div><div class="sub">'+r[2]+'</div>';}).join("");
  })();
  box.appendChild(cDm);
- sec("心魔劫","每 200 级 · 战胜即 +4% 全属性");
- const cXm=document.createElement("div");cXm.className="card";
- (function(){
-  const nm=Math.min(5,(S.xmWin||0)), nx=xmNextLv();
-  const ok=S.lv>=nx&&S.realm===2;
-  cXm.innerHTML='<div class="row"><span>已斩心魔 '+nm+'/5 重</span><span style="color:#e0b34a">永久全属性 +'+xmPct()+'%</span></div>'+
-   '<div class="sub">心魔是你的镜像：血量约你 1.15 倍、攻击约你 0.85 倍，还会带着你当前的器灵被动打你。赢一重永久 +4% 全属性（5 重封顶 +20%）。</div>'+
-   '<div class="sub">下一重门槛：Lv'+nx+'（当前 Lv'+S.lv+'）'+(nm>=5?" · 已达 5 重上限":"")+'</div>';
-  const acts=document.createElement("div");acts.className="acts";
-  const b=document.createElement("div");b.className="mini "+(ok&&nm<5?"r":"off");
-  b.textContent=nm>=5?"已破 5 重心魔":(ok?"引来心魔":"需 Lv"+nx);
-  b.onclick=()=>spawnMirror();
-  acts.appendChild(b);cXm.appendChild(acts);
- })();
- box.appendChild(cXm);
  sec("秘境三层","历练副本 · 越深越肥");
  const cMj=document.createElement("div");cMj.className="card";
  (function(){
@@ -3231,11 +3211,9 @@ function bind(){
   $("#towerPanel").style.display="block";
   $("#towerPanel").scrollIntoView&&$("#towerPanel").scrollIntoView({behavior:"smooth",block:"nearest"});
  };
- $("#btnTowerNext").onclick=()=>{
-  if(!towerOpen()){notice("500 级之后才能登上试炼塔。","warn");return;}
-  if(cur&&cur.hp>0&&!cur.tower){notice("眼前还有敌人，先解决它。","warn");return;}
-  startTower(towerNext());
- };
+ [0,1,2].forEach(i=>{const b=$("#btnTf"+i);if(b)b.onclick=()=>setMapTier(i);});
+ $("#btnTg").onclick=()=>spawnTianGuan();
+ $("#btnXm").onclick=()=>spawnMirror();
  $("#btnTowerClose").onclick=()=>{$("#towerPanel").style.display="none";};
  $("#btnBest").onclick=bestEquip;
  $("#btnSellAll").onclick=sellAll;
