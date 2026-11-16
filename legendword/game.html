@@ -601,7 +601,7 @@ function spawnTianGuan(){
  if(S.lv<300){notice("需 Lv300 才能挑战天关。","warn");return;}
  const tg=tgEnsure();
  if(tg.used>=3){notice("今日天关次数已用完（3/3），明天再来。","warn");return;}
- if(cur&&cur.hp>0&&!cur.tian){notice("先把眼前的怪打完。","warn");return;}
+ if(cur&&cur.heaven&&cur.hp>0){notice("天道在上，先了结这一战。","warn");return;}
  if(S.deadEnd&&Date.now()<S.deadEnd){notice("肉身未稳，稍后再战。","warn");return;}
  tg.used++;
  const m=curMap(),p=monPack(S.lv,3.6,m);
