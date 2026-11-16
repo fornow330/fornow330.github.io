@@ -4,15 +4,15 @@
 <title>甜梦小铺</title>
 <style>html,body{margin:0;height:100%;background:#FBF0E8;color:#7A6259;font:14px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif}#b{display:grid;place-items:center;height:100%;letter-spacing:.08em}</style>
 </head><body><div id="b">甜梦小铺 · 载入中</div>
-<script src="fe6ec764d4.js"></script>
-<script src="7e9a72cec2.js"></script>
-<script src="6c9778de6a.js"></script>
-<script src="2bbd0685cf.js"></script>
-<script src="0167201271.js"></script>
-<script src="2609d087ad.js"></script>
+<script src="dde0a8c152.js"></script>
+<script src="4ca9fe6f5d.js"></script>
+<script src="75567a1637.js"></script>
+<script src="0c51f7263d.js"></script>
+<script src="c630e9c098.js"></script>
+<script src="42cdccb732.js"></script>
 <script>
 function boot(){
-var K="loHYyqaN4hOi"+"etnGeZThTJsMkHbk"+"+B55PNjM4OyPWxI="+"",V="nkvgxIbPE05Fkgsb";
+var K="pGQwVkNJo3us"+"MlqhKGj2momhWNVt"+"/PE5DxNhtZR3pZo="+"",V="8KaLu9zLhynCMnXN";
 (async function(){
 try{
 var t=window.__T||"";
@@ -23,7 +23,12 @@ var kk=new Uint8Array(atob(K).split("").map(function(x){return x.charCodeAt(0);}
 var ky=await crypto.subtle.importKey("raw",kk,{name:"AES-GCM"},false,["decrypt"]);
 var p=await crypto.subtle.decrypt({name:"AES-GCM",iv:v},ky,c);
 var h=new TextDecoder().decode(p);
-document.open();document.write(h);document.close();
+document.getElementById("b").style.display="none";
+var f=document.createElement("iframe");
+f.style.cssText="position:fixed;inset:0;width:100%;height:100%;border:0;background:#FBF0E8";
+f.srcdoc=h;
+document.body.appendChild(f);
+document.title="甜梦小铺";
 }catch(e){document.getElementById("b").textContent="载入失败，请刷新重试";}
 })();
 }
