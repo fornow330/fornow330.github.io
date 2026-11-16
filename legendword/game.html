@@ -2380,6 +2380,8 @@ function render(refreshPanes){
    const okMj=S.realm===2&&S.lv>=c.lv&&cdL<=0;
    b.className="mini "+(okMj?"g":"off");
    b.textContent="秘境·"+c.n+(cdL>0?" "+cdL+"s":(S.lv<c.lv?"（Lv"+c.lv+"）":""));});
+  const showWorld=(S.realm===2);
+  ["btnTg","btnXm"].forEach(id=>{const el=$("#"+id);if(el)el.style.display=(showWorld?"":"none");});
   const bh=$("#battleHint");
   if(bh)bh.textContent="天罚 "+TIANFA[mt0].n+" · 强度 ×"+TIANFA[mt0].mul+" / 掉落 ×"+TIANFA[mt0].drop;
  })();
