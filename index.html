@@ -52,7 +52,17 @@
 
   .divider{margin:26px 0 10px;color:var(--dim);font-size:13px}
   form{display:flex;flex-direction:column;gap:12px}
-  input[type=url]{
+  .results{margin:14px 0 0;display:flex;flex-direction:column;gap:10px}
+  .res{padding:13px 15px;background:#0F191C;border:1px solid var(--line);border-radius:13px;cursor:pointer;
+       transition:border-color .18s ease,background .18s ease}
+  .res:hover{border-color:rgba(53,214,180,.45);background:#132321}
+  .res .rn{font-size:14px;font-weight:600;color:var(--ink)}
+  .res .rn b{color:var(--teal);font-weight:600}
+  .res .rd{margin-top:4px;font-size:12px;color:var(--dim);line-height:1.5}
+  .res .rm{margin-top:6px;font-size:11px;color:#5F7773;display:flex;gap:12px;flex-wrap:wrap}
+  .res .rm span{white-space:nowrap}
+  .hint{margin:10px 0 0;font-size:11px;color:#5F7773;line-height:1.6}
+  input[type=url],input[type=text]{
     width:100%;padding:15px 16px;background:#0F191C;color:var(--ink);
     border:1px solid var(--line);border-radius:14px;font-size:15px;outline:none;
   }
@@ -85,13 +95,15 @@
 
     <div class="list" id="list"></div>
 
-    <p class="divider">或者，输入任意网址</p>
+    <p class="divider">或者，找一个仓库</p>
     <form id="f" autocomplete="off">
-      <input id="u" type="url" inputmode="url" placeholder="https://example.com" aria-label="网址">
-      <button type="submit">打开</button>
+      <input id="u" type="text" inputmode="search" placeholder="仓库名 / 关键词，或直接贴网址" aria-label="仓库搜索">
+      <button type="submit" id="sb">在 GitHub 搜索</button>
     </form>
+    <div class="results" id="results"></div>
+    <p class="hint" id="hint">输入 owner/repo 精确查仓库；输入关键词则全 GitHub 搜。仓库有主页就直接开主页。</p>
 
-    <p class="foot">多线路并行竞速：各线路谁先到用谁，全失败回源站 · 网页版不支持 CDN 竞速，直接打开站点</p>
+    <p class="foot">多线路并行竞速：各线路谁先到用谁，全失败回源站 · 搜索结果来自 GitHub 公开 API，未登录有频率限制</p>
   </main>
   <div class="toast" id="toast"></div>
 
@@ -157,9 +169,70 @@
     window.location.href = u;
   }
 
+  const resultsEl = document.getElementById('results');
+  const hintEl = document.getElementById('hint');
+  const sbEl = document.getElementById('sb');
+
+  function looksUrl(v){
+    const t = (v||'').trim();
+    return /^https?:\/\//i.test(t) || /^[\w.-]+\.[a-z]{2,}(\/\S*)?$/i.test(t);
+  }
+
+  function clearResults(){ resultsEl.innerHTML=''; }
+
+  function renderRepo(r){
+    const owner = r.full_name.split('/')[0];
+    const name = r.full_name.split('/').slice(1).join('/');
+    const el = document.createElement('div');
+    el.className = 'res';
+    el.innerHTML = '<div class="rn"><b></b>/<span class="nm"></span></div>' +
+                   '<div class="rd"></div>' +
+                   '<div class="rm"><span class="st"></span><span class="lg"></span><span class="up"></span></div>';
+    el.querySelector('.rn b').textContent = owner;
+    el.querySelector('.nm').textContent = name;
+    el.querySelector('.rd').textContent = r.description || '（无简介）';
+    el.querySelector('.st').textContent = '★ ' + (r.stargazers_count ?? 0);
+    el.querySelector('.lg').textContent = r.language || '—';
+    el.querySelector('.up').textContent = '更新 ' + (r.pushed_at || r.updated_at || '').slice(0,10);
+    el.addEventListener('click', ()=>{
+      const target = r.homepage && /^https?:\/\//i.test(r.homepage) ? r.homepage : r.html_url;
+      go(target);
+    });
+    resultsEl.appendChild(el);
+  }
+
+  async function searchRepos(q){
+    clearResults();
+    sbEl.disabled = true; sbEl.textContent = '搜索中…';
+    hintEl.textContent = '正在 GitHub 搜索：' + q;
+    try{
+      let url;
+      if(/^[\w.-]+\/[\w.-]+$/.test(q)){
+        url = 'https://api.github.com/repos/' + q;
+        const res = await fetch(url, {headers:{'Accept':'application/vnd.github+json'}});
+        if(res.ok){ const one = await res.json(); hintEl.textContent = '精确匹配 · ' + one.full_name; renderRepo(one); return; }
+      }
+      url = 'https://api.github.com/search/repositories?q=' + encodeURIComponent(q) + '&sort=stars&order=desc&per_page=6';
+      const res = await fetch(url, {headers:{'Accept':'application/vnd.github+json'}});
+      if(!res.ok) throw new Error(res.status === 403 ? '触发频率限制，稍后再试' : 'GitHub 返回 ' + res.status);
+      const data = await res.json();
+      const items = data.items || [];
+      if(!items.length){ hintEl.textContent = '没有找到相关仓库，换个关键词试试'; return; }
+      hintEl.textContent = '共 ' + data.total_count + ' 个结果，按星数排序，显示前 ' + items.length + ' 个';
+      items.forEach(renderRepo);
+    }catch(err){
+      hintEl.textContent = '搜索失败：' + (err.message || err);
+    }finally{
+      sbEl.disabled = false; sbEl.textContent = '在 GitHub 搜索';
+    }
+  }
+
   document.getElementById('f').addEventListener('submit', e=>{
     e.preventDefault();
-    go(document.getElementById('u').value);
+    const v = document.getElementById('u').value.trim();
+    if(!v){ toast('输入仓库名或网址'); return; }
+    if(looksUrl(v)){ go(v); return; }
+    searchRepos(v);
   });
 </script>
 </body>
