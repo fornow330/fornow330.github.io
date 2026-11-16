@@ -1,13 +1,166 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="refresh" content="0; url=https://fornow.cc">
-<title>fornow.cc</title>
-<link rel="canonical" href="https://fornow.cc">
-<style>html,body{margin:0;height:100%;background:#0b0b10;color:#d9d6cf;font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;display:flex;align-items:center;justify-content:center}a{color:#e0b34a}</style>
-<script>location.replace("https://fornow.cc");</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fornowAI · 你想去哪儿</title>
+<style>
+  :root{
+    --bg:#0A1114;
+    --card:#12211F;
+    --ink:#E7F2EF;
+    --dim:#8FA8A2;
+    --teal:#35D6B4;
+    --line:rgba(143,168,162,.14);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink)}
+  body{
+    min-height:100dvh;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    display:flex;justify-content:center;
+    padding:calc(env(safe-area-inset-top) + 40px) 22px calc(env(safe-area-inset-bottom) + 30px);
+  }
+  .wrap{width:100%;max-width:560px;display:flex;flex-direction:column}
+  .tag{
+    color:var(--teal);font-size:12px;letter-spacing:.22em;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  h1{
+    margin:14px 0 0;font-size:34px;line-height:1.1;letter-spacing:-.01em;
+    font-weight:800;
+  }
+  .sub{margin:12px 0 0;color:var(--dim);font-size:14px;line-height:1.6}
+  .list{margin:28px 0 0;display:flex;flex-direction:column;gap:12px}
+  .card{
+    display:flex;align-items:center;gap:14px;
+    width:100%;padding:16px 18px;
+    background:var(--card);border:1px solid transparent;border-radius:16px;
+    color:inherit;text-align:left;font:inherit;cursor:pointer;
+    transition:border-color .18s ease,transform .18s ease,background .18s ease;
+  }
+  .card:active{transform:scale(.985)}
+  @media (hover:hover){
+    .card:hover{border-color:rgba(53,214,180,.45);background:#162924}
+  }
+  .card .txt{min-width:0;flex:1}
+  .card .name{font-size:17px;font-weight:600;letter-spacing:.01em}
+  .card .desc{margin-top:4px;font-size:12px;color:var(--dim)}
+  .card .go{flex:none;font-size:13px;color:var(--teal);white-space:nowrap}
+  .go span{display:inline-block;margin-left:2px;transition:transform .18s ease}
+  .card:hover .go span{transform:translateX(3px)}
+
+  .divider{margin:26px 0 10px;color:var(--dim);font-size:13px}
+  form{display:flex;flex-direction:column;gap:12px}
+  input[type=url]{
+    width:100%;padding:15px 16px;background:#0F191C;color:var(--ink);
+    border:1px solid var(--line);border-radius:14px;font-size:15px;outline:none;
+  }
+  input::placeholder{color:#5F7773}
+  input:focus{border-color:rgba(53,214,180,.6)}
+  button[type=submit]{
+    width:100%;padding:16px;border:0;border-radius:14px;
+    background:var(--teal);color:#04211C;font-size:16px;font-weight:700;cursor:pointer;
+    transition:filter .18s ease;
+  }
+  button[type=submit]:active{filter:brightness(.94)}
+  .foot{
+    margin:22px 0 0;color:#5F7773;font-size:11px;line-height:1.7;
+    border-top:1px solid var(--line);padding-top:14px;
+  }
+  .toast{
+    position:fixed;left:50%;bottom:36px;transform:translate(-50%,12px);
+    background:#162924;color:var(--ink);border:1px solid rgba(53,214,180,.4);
+    padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;
+    transition:opacity .2s ease,transform .2s ease;max-width:80vw;
+  }
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
 </head>
-<body><p>正在前往 <a href="https://fornow.cc">fornow.cc</a> …</p></body>
+<body>
+  <main class="wrap">
+    <div class="tag">fornowAI</div>
+    <h1>你想去哪儿</h1>
+    <p class="sub">GitHub 站点自动走 CDN 加速，失败即回源站。</p>
+
+    <div class="list" id="list"></div>
+
+    <p class="divider">或者，输入任意网址</p>
+    <form id="f" autocomplete="off">
+      <input id="u" type="url" inputmode="url" placeholder="https://example.com" aria-label="网址">
+      <button type="submit">打开</button>
+    </form>
+
+    <p class="foot">多线路并行竞速：各线路谁先到用谁，全失败回源站 · 网页版不支持 CDN 竞速，直接打开站点</p>
+  </main>
+  <div class="toast" id="toast"></div>
+
+<script>
+  // __FORNOW_ENTRY_V1__
+  // 新增站点：往 SITES 里加一条即可，APK 无需重新打包
+  const SITES = [
+    { name:'文字传奇',      desc:'文字放置 · 传奇冒险', url:'https://fornow330.github.io/legendword/', repo:'fornow330.github.io', path:'legendword/index.html' },
+    { name:'三连收纳',      desc:'三消收纳小游戏',       url:'https://fornow330.github.io/tidy-up/',   repo:'fornow330.github.io', path:'tidy-up/index.html' },
+    { name:'二合甜品小店',  desc:'合成经营 · 甜品店',   url:'https://fornow330.github.io/tycoon/',    repo:'fornow330.github.io', path:'tycoon/index.html' },
+    { name:'怪潮幸存者',    desc:'割草塔防 · 无限波次', url:'https://fornow330.github.io/cutting/',   repo:'cutting', path:'index.html' },
+    { name:'工具箱',        desc:'小羽工具箱',           url:'https://fornow330.github.io/xiaoyutool/',repo:'xiaoyutool', path:'index.html' },
+  ];
+
+  const IN_APP = /FornowSiteBox|fornowAI/i.test(navigator.userAgent || '');
+
+  function appUrl(s){
+    const q = new URLSearchParams();
+    q.set('u', s.url);
+    if(s.repo) q.set('repo', s.repo);
+    if(s.path) q.set('path', s.path);
+    if(s.name) q.set('name', s.name);
+    return 'fornowai://open?' + q.toString();
+  }
+
+  const list = document.getElementById('list');
+  SITES.forEach(s=>{
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'card';
+    b.innerHTML = `<span class="txt"><span class="name"></span><span class="desc"></span></span><span class="go">进入<span aria-hidden="true">›</span></span>`;
+    b.querySelector('.name').textContent = s.name;
+    b.querySelector('.desc').textContent = s.desc;
+    b.addEventListener('click', ()=>{ IN_APP ? (location.href = appUrl(s)) : go(s.url); });
+    list.appendChild(b);
+  });
+
+  const toastEl = document.getElementById('toast');
+  let toastTimer = 0;
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>toastEl.classList.remove('on'), 1800);
+  }
+
+  function normalize(raw){
+    const v = (raw||'').trim();
+    if(!v) return '';
+    if(/^https?:\/\/[^\s]+\.[^\s]+/i.test(v)) return v;
+    if(/^[^\s/]+\.[^\s]+/.test(v)) return 'https://' + v;
+    return '';
+  }
+
+  function go(url){
+    const u = normalize(url);
+    if(!u){ toast('请输入正确的网址，例如 https://example.com'); return; }
+    if(IN_APP){
+      const q = new URLSearchParams(); q.set('u', u);
+      location.href = 'fornowai://open?' + q.toString();
+      return;
+    }
+    window.location.href = u;
+  }
+
+  document.getElementById('f').addEventListener('submit', e=>{
+    e.preventDefault();
+    go(document.getElementById('u').value);
+  });
+</script>
+</body>
 </html>
