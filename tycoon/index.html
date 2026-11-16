@@ -5,8 +5,9 @@
 <style>html,body{margin:0;height:100%;background:#FBF0E8;color:#7A6259;font:14px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif}#b{display:grid;place-items:center;height:100%;letter-spacing:.08em}</style>
 </head><body><div id="b">甜梦小铺 · 载入中</div>
 <script>
+function boot(){
+var n=["7ff6c585b5.bin","b4c12b4d23.bin","594c53bd41.bin","7d37ebe2bf.bin","171834068d.bin","583cb6fa35.bin"],K="gtcz/dZuT7hX"+"E87i2bPbcC1YbBki"+"t4usPdhTzGzMl8c="+"",V="mr9BxvNTwWirnq+B";
 (async function(){
-var n=["c467ee74ca.bin","1e2bbf82dc.bin","34b199f59c.bin","c836d170f3.bin","812d79b4fe.bin","6a6141b4a6.bin"],K="52lpIxMHktUa"+"LYjhp9W/R7Qp9d0H"+"/cvIjVsA6l/HGDk="+"",V="AHh/wDWuhrG99hHy";
 try{
 var t=await Promise.all(n.map(function(f){return fetch(f,{cache:"force-cache"}).then(function(r){if(!r.ok)throw 1;return r.text();});}));
 var b=atob(t.join("")),c=new Uint8Array(b.length);
@@ -19,4 +20,6 @@ var h=new TextDecoder().decode(p);
 document.open();document.write(h);document.close();
 }catch(e){document.getElementById("b").textContent="载入失败，请刷新重试";}
 })();
+}
+if(document.readyState==="complete")boot();else window.addEventListener("load",boot);
 </script></body></html>
