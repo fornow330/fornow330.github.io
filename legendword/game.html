@@ -497,6 +497,10 @@ function affDexAdd(affs){
  if(affDexKeys().indexOf(key)<0)return false;
  if(S.affDex[key])return false;
  S.affDex[key]=1;
+ const tot=Object.keys(S.affDex).length,ms=Math.floor(tot/7);
+ if(ms>(S.affDexMs||0)){S.affDexMs=ms;S.affPtr=(S.affPtr||0)+1;
+  log("◇ 图鉴凑满 "+ms*7+" 条，得【词缀自选券】×1（重铸时可指定一条词缀必出）。","gold");
+  notice("词缀自选券 ×1","gold");}
  return true;
 }
 function affDexPct(){
@@ -551,7 +555,7 @@ function stats(){
  const lv=S.lv,P=S.prestige,ap=S.attr;
  const db=dexBonus(),mb=meriBonus(),rb=relicBonus(),zb=zodiacBonus(),tb=titleBonus(),sb=supremeBonus();
  const soulM=1+(S.soulLv||0)*0.02, legM=1+(S.legacyLv||0)*0.015, trM=1+(S.transmog||0)*0.03;
- const pm=1+P*0.10, dkp=1+affDexPct()/100;
+ const pm=1+P*0.10, dkp=1+(affDexPct()+(S.nemBonus||0))/100;
  const aAdd=eqSum("atkMin")+mb.atk+rb.atk+zb.atk+tb.atk+db.atk+sb.atk;
  const dAdd=eqSum("defMin")+mb.def+rb.def+zb.def+sb.def;
  const hAdd=eqSum("hp")+mb.hp+rb.hp+zb.hp+tb.hp+db.hp+sb.hp;
@@ -572,7 +576,7 @@ function stats(){
  };
 }
 function worldStats(){
- const w=Math.max(0,S.lv-200),d=S.dp||{},ab=artBonus(),dkp=1+affDexPct()/100;
+ const w=Math.max(0,S.lv-200),d=S.dp||{},ab=artBonus(),dkp=1+(affDexPct()+(S.nemBonus||0))/100;
  let atk=200+w*120+(d.atk||0)*140+(ab.atk||0);
  let def=100+w*25+(d.def||0)*90+(ab.def||0);
  let hpm=6000+w*760+(d.hpm||0)*2400+(ab.hp||0);
@@ -1029,7 +1033,9 @@ function toggleArtLock(slot,idx){
 function rerollArt(slot,opt){
  opt=opt||{};
  const it=(S.art||{})[slot];if(!it){notice("该部位还没有灵器。","warn");return;}
- if(opt.ticket){
+ if(opt.ptr){
+  if((S.affPtr||0)<1){notice("没有词缀自选券：词缀图鉴每集满 7 条送 1 张。","warn");return;}
+ }else if(opt.ticket){
   if((S.ticket||0)<1){notice("没有保底券：每洗练 10 次得 1 张，试炼塔首通也送。","warn");return;}
  }else{
   const c=rerollArtCost(it);
@@ -1078,15 +1084,17 @@ function rerollArt(slot,opt){
  it.affs=out;
  it.lk=artLockIdx(it);
  if(opt.ticket)S.ticket=Math.max(0,(S.ticket||0)-1);
+ if(opt.ptr)S.affPtr=Math.max(0,(S.affPtr||0)-1);
  let extraMsg="";
  if(!opt.ticket){
   S.rerollCnt=(S.rerollCnt||0)+1;
   if(S.rerollCnt%10===0){S.ticket=(S.ticket||0)+1;extraMsg=" 洗练满 10 次，保底券 +1。";}
  }
- notice((opt.ticket?"保底券定向洗练（锁定类型「"+kindName+"」）：":"重铸完成：")+it.affs.length+" 条词条已重新随机"+(lkIdx.length?"（锁定 "+lkIdx.length+" 条保持原值）":"")+(it.grow?"（专属灵器数值比例上调，只升不降）":"")+extraMsg,"good");
+ notice(((opt.ticket||opt.ptr)?"定向洗练（锁定类型「"+kindName+"」）：":"重铸完成：")+it.affs.length+" 条词条已重新随机"+(lkIdx.length?"（锁定 "+lkIdx.length+" 条保持原值）":"")+(it.grow?"（专属灵器数值比例上调，只升不降）":"")+extraMsg,"good");
  render();save();
 }
 function rerollArtTicket(slot,kind){rerollArt(slot,{ticket:true,kind});}
+function rerollArtPtr(slot,kind){rerollArt(slot,{ptr:true,kind});}
 function rollArtQ(mlv){
  const w=[60,mlv>=350?26:8,mlv>=600?12:0,mlv>=850?4:0];
  const tot=w.reduce((a,b)=>a+b,0);let r=Math.random()*tot;
@@ -1293,7 +1301,11 @@ function playerAttack(forceFire){
   log("【荆棘】反伤 "+rb+"。","warn");
  }
 }
+function towerRunHit(){
+ if(S.towerRun&&S.towerRun.f===((cur&&cur.tower)||0))S.towerRun.hits++;
+}
 function monsterAttack(second){
+ if(cur&&cur.tower)towerRunHit();
  if(!cur||cur.hp<=0)return;
  const st=stats();
  const af=cur.affs||[];
@@ -1371,6 +1383,17 @@ function winMonster(){
  S.gold+=cur.gold;S.exp+=gain;S.kills++;
  rateAcc.g+=cur.gold;rateAcc.e+=gain;rateAcc.ms+=CONFIG.tickMs;
  dailyAdd("kills",1);dailyAdd("gold",cur.gold);
+ if(S.realm===2&&worldEvNow()&&S.evAct&&S.evAct.k===worldEvNow()&&!S.evAct.got){
+  S.evAct.n++;
+  if(S.evAct.n>=S.evAct.goal){
+   S.evAct.got=true;
+   const bw=Math.round(2600*CONFIG.spiritRate);
+   S.spirit=(S.spirit||0)+bw;S.crystal+=8;S.mat.enh+=3;
+   if(Math.random()<0.5)S.mat.star+=1;
+   log("【大世界事件】参与达成 "+S.evAct.goal+" 杀，事件宝箱开启：灵晶 +"+nf(bw)+"、水晶 ×8、强化石 ×3。","gold");
+   notice("事件宝箱：灵晶 +"+nf(bw),"gold");
+  }
+ }
  if(!boss&&(cur.elite||(cur.affs&&cur.affs.length)))questAdd("aff",1);
  if(boss)questAdd("boss",1);
  if(S.realm===2){
@@ -1396,6 +1419,13 @@ function winMonster(){
  if(boss&&!cur.heaven&&!cur.gate&&S.realm===2){
   if(cur.nemesis){
    S.nchain=(S.nchain||0)+1;S.nemesis=true;
+   S.nemArch=S.nemArch||{kills:0,best:0,byName:{}};
+   S.nemArch.kills++;S.nemArch.best=Math.max(S.nemArch.best||0,cur.nemTier||0);
+   const nm2=String(cur.name||"宿敌").replace(/（复仇 \d+ 重）$/,"");
+   S.nemArch.byName[nm2]=(S.nemArch.byName[nm2]||0)+1;
+   if((S.nemArch.best||0)>=5&&!(S.nemBonus>0)){S.nemBonus=5;
+    log("★ 复仇 5 重宿敌授首，获称号【斩仇】：永久全属性 +5%。","gold");
+    notice("称号【斩仇】永久全属性 +5%","gold");}
    log("宿敌倒下，怨气未散——复仇链 +1（第 "+S.nchain+" 重），下一只 BOSS 就是更凶的它。","boss");
   }else if(bossChainAdd())log("你已连斩此地 BOSS 五次，怨气凝成【宿敌】，下次它必来寻仇。","boss");
  }
@@ -1462,7 +1492,8 @@ function tick(){
  if(S.shieldEnd&&Date.now()>=S.shieldEnd){log("【魔法盾】消散了。","sys");S.shieldEnd=0;}
  const st=stats();
  if(CONFIG.autoPotion){
-  if(S.hp<st.hp*0.5&&S.mat.hp>0){S.mat.hp--;S.hp=Math.min(st.hp,S.hp+st.hp*0.35);log("你灌下一瓶金创药。","good");}
+  if(S.hp<st.hp*0.5&&S.mat.hp>0){S.mat.hp--;
+  if(S.towerRun&&S.mode==="tower")S.towerRun.pot++;S.hp=Math.min(st.hp,S.hp+st.hp*0.35);log("你灌下一瓶金创药。","good");}
   if(S.mp<40&&S.mat.mp>0){S.mat.mp--;S.mp=Math.min(maxMp(),S.mp+45);log("你饮下气力药。","good");}
  }
  if(CONFIG.autoCast)trySkills();
@@ -1754,6 +1785,7 @@ function startWorldEvent(){
  const k=pick(Object.keys(WEV));
  const now=Date.now();
  S.worldEv={k,end:now+10*60000};
+ S.evAct={k,n:0,goal:60,got:false};
  S.worldEvNext=S.worldEv.end+Math.round(rnd(8,12))*60000;
  log("【大世界事件】"+WEV[k].n+"："+WEV[k].d+"（持续 10 分钟，结束后 8-12 分钟再来一场）","boss");
  notice("大世界事件："+WEV[k].n+" —— "+WEV[k].d,"gold");
@@ -1801,6 +1833,10 @@ function renderTowerList(){
   const done=f<=best,next=f===best+1;
   const mlv=towerFloorMlv(f);
   c.innerHTML='<div class="row"><span style="color:'+(done?"#6fce8a":(next?"#f0d093":"#6b6870"))+'">第 '+f+' 层'+(done?"（已通）":"")+'</span><span style="color:#8a877e">Lv'+mlv+' · '+towerAffs(f)+' 词缀</span></div>';
+  const sc=S.tower.stars&&S.tower.stars[f]?S.tower.stars[f]:0;
+  const starLine=document.createElement("div");starLine.className="sub";starLine.style.color=sc?"#e0b34a":"#6b6870";
+  starLine.textContent="评级 "+(sc?"★".repeat(sc)+"☆".repeat(3-sc):"未通关")+"（限时 / 无伤 / 少喝药）";
+  c.appendChild(starLine);
   const pv=towerPreview(f);
   const sub=document.createElement("div");sub.className="sub";
   sub.innerHTML="词缀预告："+(pv?"【"+pv.map(k=>MAFF[k]).join("·")+"】":"随机（"+towerAffs(f)+" 条，进塔才定）");
@@ -1868,6 +1904,7 @@ function startTower(f){
  if(S.tower.pv)delete S.tower.pv[String(f)];
  setMonAffs(cur,affs);
  S.mode="tower";S.hp=stats().hp;S.mp=maxMp();
+ S.towerRun={f,t:Date.now(),hits:0,pot:0};
  $("#towerPanel").style.display="none";
  log("第 "+f+" 层的守关者现身，词缀【"+monAffText(cur)+"】。","boss");
  renderMon();render();save();
@@ -1876,6 +1913,27 @@ function towerWin(){
  const f=cur.tower||1;
  const sp=Math.round((800+f*300)*(worldEvNow()==="horde"?1.5:1)*CONFIG.spiritRate);
  S.spirit=(S.spirit||0)+sp;
+ const run=S.towerRun&&S.towerRun.f===f?S.towerRun:null;
+ let stars=0;
+ if(run){
+  const secs=(Date.now()-run.t)/1000;
+  if(secs<=Math.min(120,60+f*1.2))stars++;
+  if(!run.hits)stars++;
+  if((run.pot||0)<=1)stars++;
+ }
+ S.towerRun=null;
+ if(f<=TOWER_MAX){
+  S.tower.stars=S.tower.stars||{};
+  const prev=S.tower.stars[f]||0;
+  if(stars>prev){
+   S.tower.stars[f]=stars;
+   const bsp=Math.round(sp*0.25*stars);
+   S.spirit=(S.spirit||0)+bsp;
+   if(stars>=3&&prev<3){S.ticket=(S.ticket||0)+1;
+    log("★★★ 试炼塔第 "+f+" 层三星（限时/无伤/少药全达成）：灵晶 +"+nf(bsp)+"、保底券 ×1。","gold");
+   }else log("试炼塔第 "+f+" 层评级 "+"★".repeat(stars)+"☆".repeat(3-stars)+"：额外灵晶 +"+nf(bsp)+"。","gold");
+  }
+ }
  if(f>TOWER_MAX){
   const n=f-TOWER_MAX;
   if(n>towerEndN()){
@@ -2101,9 +2159,10 @@ function render(refreshPanes){
  $("#btnTowerNext").className="btn"+(towerOpen()?"":" off");
  $("#btnTowerNext").textContent=towerOpen()?("第 "+towerNext()+" 层"):"未开放";
  const evK=worldEvNow(),evLine=$("#evLine");
+ const evAct=(S.evAct&&S.evAct.k===evK)?S.evAct:null;
  if(evLine){
   if(S.realm!==2)evLine.textContent="大世界事件：进入大世界后开启（当前"+realmName()+"）";
-  else if(evK)evLine.textContent="当前事件：「"+WEV[evK].n+"」"+WEV[evK].d+" · 剩余 "+worldEvLeft()+" 分钟";
+  else if(evK)evLine.textContent="当前事件：「"+WEV[evK].n+"」"+WEV[evK].d+" · 剩余 "+worldEvLeft()+" 分钟"+(evAct?(" · 参与 "+Math.min(evAct.goal,evAct.n)+"/"+evAct.goal+(evAct.got?"（宝箱已领）":"")):"");
   else{
    worldEvEnsure();
    const left=Math.ceil(((S.worldEvNext||0)-Date.now())/60000);
@@ -2182,7 +2241,7 @@ function renderChar(){
   const rsn=artResonance();
   const rline=document.createElement("div");rline.className="sub";
   rline.style.cssText="padding:0 2px 6px;color:#8a877e";
-  rline.textContent="共鸣：已佩戴 "+rsn.n+"/6 件"+(rsn.n>=4?("，伤害加成 +"+rsn.amp+"%（4 件起 / 5 件 1.5 倍 / 6 件 2 倍且词条上限 13）"):"（满 4 件起生效）")+"；保底券 ×"+(S.ticket||0)+"。";
+  rline.textContent="共鸣：已佩戴 "+rsn.n+"/6 件"+(rsn.n>=4?("，伤害加成 +"+rsn.amp+"%（4 件起 / 5 件 1.5 倍 / 6 件 2 倍且词条上限 13）"):"（满 4 件起生效）")+"；保底券 ×"+(S.ticket||0)+"、词缀自选券 ×"+(S.affPtr||0)+"。";
   box.appendChild(rline);
   ART_KINDS.forEach(sl=>{
    const it=(S.art||{})[sl];
@@ -2215,6 +2274,17 @@ function renderChar(){
       c.appendChild(row);
      };
      acts.appendChild(tb);
+    }
+    if((S.affPtr||0)>0){
+     const pb=document.createElement("div");pb.className="mini y";
+     pb.textContent="图鉴券定向洗（"+S.affPtr+"）";
+     pb.onclick=()=>{
+      const row=document.createElement("div");row.className="acts ticketrow";row.style.flexWrap="wrap";
+      ART_AFF.forEach(af=>{const kb=document.createElement("div");kb.className="mini";kb.textContent=af.n;
+       kb.onclick=()=>rerollArtPtr(sl,af.k);row.appendChild(kb);});
+      c.appendChild(row);
+     };
+     acts.appendChild(pb);
     }
     c.appendChild(acts);
     const pr=document.createElement("div");pr.className="acts";pr.style.flexWrap="wrap";
@@ -2343,6 +2413,17 @@ function renderWorldGrow(){
   b.textContent="升 "+n;b.onclick=()=>worldUp(k);acts.appendChild(b);
   c.appendChild(acts);box.appendChild(c);
  });
+ sec("宿敌档案","复仇链记录");
+ const cNem=document.createElement("div");cNem.className="card";
+ (function(){
+  const a=S.nemArch||{kills:0,best:0,byName:{}};
+  const names=Object.keys(a.byName||{}).sort((x,y)=>a.byName[y]-a.byName[x]).slice(0,4);
+  const nk=names.map(n=>'<div class="sub">· '+n+' ×'+(a.byName[n]||0)+'</div>').join("")||'<div class="sub">还没有宿敌倒在你刀下。</div>';
+  cNem.innerHTML='<div class="row"><span>已斩宿敌 '+(a.kills||0)+' 只</span><span style="color:#8a877e">最高复仇 '+(a.best||0)+' 重</span></div>'+
+   '<div class="sub">当前复仇链：'+(S.nchain||0)+' 重'+(S.nemesis?"（宿敌在场，正在寻仇）":"")+'</div>'+nk+
+   '<div class="sub" style="color:'+(S.nemBonus?"#e0b34a":"#8a877e")+'">称号：'+(S.nemBonus?("【斩仇】永久全属性 +"+S.nemBonus+"%"):"未获得（斩下复仇 5 重宿敌即可）")+'</div>';
+ })();
+ box.appendChild(cNem);
  sec("灵器","武器/甲/头巾/项链/腰带/鞋子 · 词条全随机");
  const c1=document.createElement("div");c1.className="card";
  const w1=(S.art||{}).weapon, a1=(S.art||{}).armor;
@@ -2593,7 +2674,8 @@ function renderAffDex(){
   '<div class="sub">'+singles.map(tag).join("")+'</div>'+
   '<div class="row" style="margin-top:8px"><span>第二页 · 双词缀组合</span><span style="color:'+(p>=21?"#9be0a2":"#8a877e")+'">'+p+' / 21</span></div>'+
   '<div class="sub">'+pairs.map(tag).join("")+'</div>'+
-  '<div class="sub">已收录 '+total+' / 28 条 · 永久全属性 +'+affDexPct()+'%（每条 +0.3%，第一页集齐再 +1.2%，第二页集齐再 +3.6%，满 28 条共 +13.2%）</div>';
+  '<div class="sub">已收录 '+total+' / 28 条 · 永久全属性 +'+affDexPct()+'%（每条 +0.3%，第一页集齐再 +1.2%，第二页集齐再 +3.6%，满 28 条共 +13.2%）</div>'+
+  '<div class="sub" style="color:#8a877e">每集满 7 条送【词缀自选券】×1，重铸时可指定一条词缀必出。当前持有 '+(S.affPtr||0)+' 张。</div>';
  box.appendChild(c);
 }
 /* ============ 设置 / 存档 ============ */
