@@ -119,6 +119,7 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
 <main>
   <div class="pane on" id="pane0">
     <div class="chips" id="mapChips"></div>
+    <div id="goalLine" class="sub" style="padding:2px 4px 4px;color:#e0b34a;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     <div class="mon" id="monBox">
       <div class="t"><span id="monName">寻找猎物…</span><span id="monLv"></span></div>
       <div class="bar"><i id="monHp" style="width:100%"></i><b id="monHpTxt">– / –</b></div>
@@ -1262,6 +1263,7 @@ function toggleArtLock(slot,idx){
 function rerollArt(slot,opt){
  opt=opt||{};
  const it=(S.art||{})[slot];if(!it){notice("该部位还没有灵器。","warn");return;}
+ if(it.lock){notice("这件灵器已锁定，先解锁再重铸。","warn");return;}
  if(opt.ptr){
   if((S.affPtr||0)<1){notice("没有词缀自选券：词缀图鉴每集满 7 条送 1 张。","warn");return;}
  }else if(opt.ticket){
@@ -1619,7 +1621,7 @@ function winMonster(){
  if(cur.tian){
   S.mode="normal";cur=null;S.tgEnd=0;S.hp=stats().hp;S.mp=maxMp();
   const sp=Math.round((1200+S.lv*10)*CONFIG.spiritRate);
-  S.spirit=(S.spirit||0)+sp;S.crystal+=8;S.mat.enh+=3;
+  S.spirit=(S.spirit||0)+sp;S.crystal+=8;S.mat.enh+=3;S.tgWins=(S.tgWins||0)+1;runStat.sp+=sp;
   if(Math.random()<0.35)S.ticket=(S.ticket||0)+1;
   log("★ 天关清杀：灵晶 +"+nf(sp)+"、水晶 ×8、强化石 ×3。","gold");
   notice("天关通过：灵晶 +"+nf(sp),"gold");
@@ -1637,7 +1639,7 @@ function winMonster(){
   S.mode="normal";cur=null;S.voidEnd=0;S.hp=stats().hp;S.mp=maxMp();
   const sp=Math.round((2600+S.lv*14)*CONFIG.spiritRate);
   S.spirit=(S.spirit||0)+sp;runStat.sp+=sp;
-  S.crystal+=10;S.mat.enh+=6;S.ticket=(S.ticket||0)+1;
+  S.crystal+=10;S.mat.enh+=6;S.ticket=(S.ticket||0)+1;S.voidClears=(S.voidClears||0)+1;
   log("★ 虚空裂隙打穿：灵晶 +"+nf(sp)+"、水晶 ×10、强化石 ×6、保底券 ×1，专属灵器机缘必得。","gold");
   grantGrowArt();
   notice("虚空裂隙通过：必掉专属灵器。","gold");
@@ -1662,7 +1664,7 @@ function winMonster(){
   }else{
    S.mjChain=0;
    if(nxt)notice("下一层「"+nxt.n+"」需 Lv"+nxt.lv+"，本次秘境结束。","warn");
-   else notice("四层秘境已全部清空，本次结束。","gold");
+   else{notice("四层秘境已全部清空，本次结束。","gold");S.mjFull=1;checkAch();}
    spawn();render();
   }
   return;
@@ -2150,11 +2152,30 @@ function towerRollPreview(f){
  notice("第 "+f+" 层词缀换成【"+affs.map(k=>MAFF[k]).join("·")+"】，进去就打这一套。","good");
  renderTowerList();save();
 }
+let towerAll=false;
+function towerOverviewHtml(){
+ const best=S.tower.best||0;
+ let g='<div class="quick" style="flex-wrap:wrap">';
+ for(let f=1;f<=TOWER_MAX;f++){
+  const done=f<=best;const next=f===best+1;
+  g+='<div class="mini '+(done?"y":(next?"b":"off"))+'" data-tf2="'+f+'" style="flex:0 0 17%">'+f+(done?"★":"")+'</div>';
+ }
+ g+='</div>';
+ return g;
+}
 function renderTowerList(){
  const box=$("#towerList");if(!box)return;
  const st=$("#towerState");if(st)st.textContent="已通 "+(S.tower.best||0)+"/"+TOWER_MAX+" 层"+(towerEndN()?" · 浮屠塔 "+towerEndN()+" 层":"");
  box.innerHTML="";
  const best=S.tower.best||0;
+ if(towerAll){
+  const ov=document.createElement("div");ov.innerHTML=towerOverviewHtml();
+  box.appendChild(ov);
+  ov.querySelectorAll("[data-tf2]").forEach(el=>{el.onclick=()=>{const f=Number(el.dataset.tf2);startTower(f);};});
+  const back=document.createElement("div");back.className="mini b";back.textContent="收起总览";
+  back.onclick=()=>{towerAll=false;renderTowerList();};
+  box.appendChild(back);
+ }
  const from=Math.max(1,Math.min(TOWER_MAX,best-1)),to=Math.min(TOWER_MAX,(best>=TOWER_MAX?TOWER_MAX:best+2));
  for(let f=from;f<=to;f++){
   const c=document.createElement("div");c.className="card";
@@ -2214,6 +2235,10 @@ function renderTowerList(){
    c2.appendChild(acts2);box.appendChild(c2);
   }
  }
+ const ovBtn=document.createElement("div");ovBtn.className="mini "+(towerAll?"y":"b");
+ ovBtn.textContent=towerAll?"收起楼层总览":"楼层总览（1~50）";
+ ovBtn.onclick=()=>{towerAll=!towerAll;renderTowerList();};
+ box.appendChild(ovBtn);
  const tip=document.createElement("div");tip.className="foot";
  tip.textContent="每 10 级一层，共 50 层；首通给灵晶、保底券与强化材料，失败无惩罚。进塔前可花灵晶刷新本层词缀（点「换词缀」），刷新后只对这一层生效。塔顶登临后开启浮屠塔：无限往上，每层强度 +18%，每 3 层再给保底券。";
  box.appendChild(tip);
@@ -2379,7 +2404,17 @@ const ACHS=[
  {id:"a7",n:"欧皇",d:"获得传说以上装备",r:20,chk:()=>SLOTS.some(s=>S.eq[s.k]&&S.eq[s.k].q>=4)},
  {id:"a8",n:"百炼",d:"任一装备 +10",r:30,chk:()=>SLOTS.some(s=>S.eq[s.k]&&S.eq[s.k].plus>=10)},
  {id:"a9",n:"图鉴达人",d:"点亮 15 种怪",r:25,chk:()=>Object.keys(S.dex).length>=15},
- {id:"a10",n:"富甲",d:"攒下 500 水晶",r:25,chk:()=>S.crystal>=500}
+ {id:"a10",n:"富甲",d:"攒下 500 水晶",r:25,chk:()=>S.crystal>=500},
+ {id:"a11",n:"登塔二十",d:"试炼塔通 20 层",r:30,chk:()=>((S.tower&&S.tower.best)||0)>=20},
+ {id:"a12",n:"塔顶",d:"试炼塔 50 层全通",r:60,chk:()=>((S.tower&&S.tower.best)||0)>=50},
+ {id:"a13",n:"灵器初成",d:"获得 1 件专属灵器",r:25,chk:()=>growArtSlots().length>=1},
+ {id:"a14",n:"六器归位",d:"六件专属灵器集齐",r:80,chk:()=>growArtSlots().length>=6},
+ {id:"a15",n:"四层通幽",d:"秘境四层全部清空",r:40,chk:()=>!!S.mjFull},
+ {id:"a16",n:"破虚",d:"通关虚空裂隙",r:50,chk:()=>(S.voidClears||0)>=1},
+ {id:"a17",n:"天关常客",d:"累计打穿天关 10 次",r:35,chk:()=>(S.tgWins||0)>=10},
+ {id:"a18",n:"心魔尽斩",d:"心魔 5 重全清",r:50,chk:()=>(S.xmWin||0)>=5},
+ {id:"a19",n:"道行百里",d:"任意道行满 50 层",r:40,chk:()=>Math.max((S.dp.atk||0),(S.dp.def||0),(S.dp.hpm||0),(S.dp.crit||0))>=50},
+ {id:"a20",n:"虚空破碎",d:"击败天道，破碎虚空",r:100,chk:()=>!!S.skyWin}
 ];
 function checkAch(){
  for(const a of ACHS){
@@ -2411,19 +2446,56 @@ function buy(key,q){
 }
 
 /* ============ 渲染 ============ */
+let mapOpen=false;
+function goMapIdx(i){
+ const list=curMaps();const m=list[i];if(!m)return;
+ if(S.lv<m.lv[0]){notice("修为不够，"+m.n+" 需要 Lv"+m.lv[0]+"。","warn");return;}
+ S.map=i;S.mode="normal";cur=null;spawn();renderChips();render();
+}
 function renderChips(){
- const box=$("#mapChips");box.innerHTML="";
- curMaps().forEach((m,i)=>{
-  const d=document.createElement("div");
-  const lock=S.lv<m.lv[0];
-  d.className="chip"+(i===S.map?" on":"")+(lock?" lock":"");
-  d.textContent=(i+1)+"."+m.n+(lock?" 需"+m.lv[0]+"级":"");
-  d.onclick=()=>{
-   if(lock){notice("修为不够，"+m.n+" 需要 Lv"+m.lv[0]+"。","warn");return;}
-   S.map=i;S.mode="normal";cur=null;spawn();renderChips();render();
-  };
-  box.appendChild(d);
- });
+ const box=$("#mapChips");if(!box)return;
+ const list=curMaps();const i=S.map||0;const m=list[i];
+ box.innerHTML="";
+ if(!m)return;
+ if(!mapOpen){
+  const prev=document.createElement("div");prev.className="chip";prev.textContent="←";prev.style.flex="0 0 34px";
+  prev.onclick=()=>{if(i>0)goMapIdx(i-1);else notice("已经是最前面那张图了。","warn");};
+  const mid=document.createElement("div");mid.className="chip on";mid.style.flex="1";
+  mid.textContent=(i+1)+"/"+list.length+" · "+m.n+"（Lv"+m.lv[0]+"+"+(S.lv<m.lv[0]?" · 未解锁":"")+"）";
+  const next=document.createElement("div");next.className="chip";next.textContent="→";next.style.flex="0 0 34px";
+  next.onclick=()=>{if(i+1<list.length)goMapIdx(i+1);else notice("已经到最后一张图了。","warn");};
+  const all=document.createElement("div");all.className="chip";all.textContent="全部";all.style.flex="0 0 46px";
+  all.onclick=()=>{mapOpen=true;renderChips();};
+  box.appendChild(prev);box.appendChild(mid);box.appendChild(next);box.appendChild(all);
+ }else{
+  list.forEach((mm,ii)=>{
+   const lock=S.lv<mm.lv[0];
+   const d=document.createElement("div");
+   d.className="chip"+(ii===S.map?" on":"")+(lock?" lock":"");
+   d.textContent=(ii+1)+"."+mm.n+(lock?" 需"+mm.lv[0]:"");
+   d.onclick=()=>{if(ii===S.map){mapOpen=false;renderChips();return;}goMapIdx(ii);mapOpen=false;renderChips();};
+   box.appendChild(d);
+  });
+  const close=document.createElement("div");close.className="chip";close.textContent="收起";
+  close.onclick=()=>{mapOpen=false;renderChips();};
+  box.appendChild(close);
+ }
+}
+function goalText(){
+ if(S.realm===0&&S.prestige===0){
+  if(S.lv<10)return "目标：先升到 Lv10（打当前图的怪，血少就点打坐）";
+  if(S.lv<35)return "目标：升到 Lv35 解锁「一方霸主」称号，顺手把地图往后推";
+  return "目标：凑齐实力后转生（养成页），转生战力会重置但上限更高";
+ }
+ if(S.realm===0)return "目标：转生 "+Math.max(0,4-S.prestige)+" 次后渡雷劫，进入天空之城";
+ if(S.realm===1)return "目标：Lv210 后挑战界门，打开大世界";
+ if(!S.skyWin){
+  if(S.lv<300)return "目标：Lv300 起可开天关（每日 3 次，30 秒限时）";
+  if(S.lv<500)return "目标：Lv500 解锁试炼塔，50 层拿保底券与灵晶";
+  if(S.lv<900)return "目标：Lv900 解锁虚空裂隙，打穿必掉专属灵器";
+  return "目标：Lv1000 挑战天道，破碎虚空";
+ }
+ return "目标：虚空已碎，随便刷——灵晶、灵器、道行，想堆哪条堆哪条";
 }
 function renderMon(){
  if(S.deadEnd&&Date.now()<S.deadEnd){
@@ -2478,8 +2550,10 @@ function renderFast(){
  const bt=$("#btnTrial");
  if(bt)bt.textContent=S.realm===2?(tLeft>0?"历练 "+tLeft+"s":"历练副本（逐层）"):(tLeft>0?"历练 "+tLeft+"s":"历练副本");
  const rl=$("#runLine");if(rl)rl.textContent=runLineText();
+ const gl=$("#goalLine");if(gl)gl.textContent=goalText();
 }
 function render(refreshPanes){
+ const gl0=$("#goalLine");if(gl0)gl0.textContent=goalText();
  const rl0=$("#runLine");if(rl0)rl0.textContent=runLineText();
  if(refreshPanes===undefined)refreshPanes=true;
  const st=stats();
@@ -2654,6 +2728,10 @@ function renderChar(){
     const b=document.createElement("div");b.className="mini b";
     b.textContent=(it.grow?"专属重铸 ":"重铸 ")+nf(rerollArtCost(it))+" 灵晶"+(worldEvNow()==="smith"?"（半价）":"");
     b.onclick=()=>rerollArt(sl);acts.appendChild(b);
+    const lk=document.createElement("div");lk.className="mini "+(it.lock?"y":"b");
+    lk.textContent=it.lock?"已锁":"锁定";
+    lk.onclick=()=>{it.lock=!it.lock;log(it.lock?"灵器「"+artTitle(it)+"」已锁定，不会参与重铸。":"灵器已解锁。",it.lock?"gold":"sys");render();save();};
+    acts.appendChild(lk);
     if(it.grow){
      const aw=awakeState(it);
      const ab=document.createElement("div");ab.className="mini "+(it.awake?"y":(canAwake(it)?"g":"off"));
