@@ -126,6 +126,7 @@ body.big .chips .chip{font-size:12.5px;padding:6px 11px}
 <main>
   <div class="pane on" id="pane0">
     <div class="chips" id="mapChips"></div>
+    <div id="questLine" class="card" style="display:none;margin:6px 0;padding:8px 10px"></div>
     <div id="goalLine" class="sub" style="padding:2px 4px 4px;color:#e0b34a;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     <div class="mon" id="monBox">
       <div class="t"><span id="monName">寻找猎物…</span><span id="monLv"></span></div>
@@ -557,6 +558,15 @@ function affDexAdd(affs){
  if(S.affDex[key])return false;
  S.affDex[key]=1;
  const tot=Object.keys(S.affDex).length,ms=Math.floor(tot/7);
+ const stageTab={14:[30,0],28:[60,1200],42:[100,3000]};
+ const stg=stageTab[tot];
+ if(stg&&!((S.affStage||{})[tot])){
+  S.affStage=S.affStage||{};S.affStage[tot]=1;
+  S.crystal+=stg[0];
+  if(S.realm===2&&stg[1])S.spirit=(S.spirit||0)+stg[1];
+  log("◇ 词缀图鉴累计 "+tot+" 条，阶段奖励：水晶 ×"+stg[0]+(stg[1]?"、灵晶 ×"+nf(stg[1]):"")+"。","gold");
+  notice("图鉴阶段奖励：水晶 ×"+stg[0],"gold");
+ }
  if(ms>(S.affDexMs||0)){S.affDexMs=ms;S.affPtr=(S.affPtr||0)+1;
   log("◇ 图鉴凑满 "+ms*7+" 条，得【词缀自选券】×1（重铸时可指定一条词缀必出）。","gold");
   notice("词缀自选券 ×1","gold");}
@@ -1689,6 +1699,9 @@ function winMonster(){
  const gain=Math.round(cur.exp*decay*(worldEvNow()==="tide"?1.5:1));
  runStat.exp+=gain;
  S.gold+=cur.gold;S.exp+=gain;S.kills++;
+ S.lastKill=Date.now();
+ if(S.prevKill){const dt=Date.now()-S.prevKill;if(dt>0&&dt<120000)S.avgKill=Math.round(((S.avgKill||0)*0.8)+dt*0.2);}
+ S.prevKill=Date.now();
  rateAcc.g+=cur.gold;rateAcc.e+=gain;rateAcc.ms+=CONFIG.tickMs;
  dailyAdd("kills",1);dailyAdd("gold",cur.gold);
  if(S.realm===2&&worldEvNow()&&S.evAct&&S.evAct.k===worldEvNow()&&!S.evAct.got){
@@ -1881,7 +1894,7 @@ function wear(id){
  const i=S.bag.findIndex(x=>x.id===id);
  if(i<0){toast("装备已不在背包。","warn");return;}
  const it=S.bag[i],old=S.eq[it.slot];
- S.eq[it.slot]=it;S.bag.splice(i,1);if(old)S.bag.push(old);
+ S.eq[it.slot]=it;S.bag.splice(i,1);if(old)S.bag.push(old);S.equipCount=(S.equipCount||0)+1;
  notice("换上 "+fullName(it)+(old?"（比原装强 "+Math.round(score(it)-score(old))+"）":"（"+it.slotName+"原本空着）"),"good");
  render();save();
 }
@@ -2500,6 +2513,32 @@ function renderChips(){
   box.appendChild(close);
  }
 }
+const NEWBIE=[
+ {n:"击杀 10 只怪",tip:"点怪就砍，血少按打坐",done:()=>S.kills>=10,give:()=>{S.gold+=300;S.mat.enh+=3;},rew:"金币 300、强化石 ×3"},
+ {n:"打坐回血 1 次",tip:"打坐 60 秒一次，回满血与气力",done:()=>S.sitCount>=1,give:()=>{S.mat.hp=(S.mat.hp||0)+3;},rew:"金创药 ×3"},
+ {n:"挑战 BOSS 1 次",tip:"90 秒冷却，打不过也能拿经验",done:()=>S.bossKills>=1,give:()=>{S.crystal+=10;},rew:"水晶 ×10"},
+ {n:"穿上一件打到的装备",tip:"背包点「穿戴」即可",done:()=>S.equipCount>=1,give:()=>{S.mat.enh+=2;},rew:"强化石 ×2"},
+ {n:"升到 Lv20",tip:"打高级图经验更多",done:()=>S.lv>=20,give:()=>{S.crystal+=15;S.ticket=(S.ticket||0)+1;},rew:"水晶 ×15、保底券 ×1"}
+];
+function qStep(){S.quest=S.quest||{step:0};return S.quest.step||0;}
+function renderQuestLine(){
+ const box=$("#questLine");if(!box)return;
+ const i=qStep();
+ if(i>=NEWBIE.length){box.style.display="none";return;}
+ const q=NEWBIE[i],ok=q.done();
+ box.style.display="block";
+ box.innerHTML='<div class="row"><span style="color:#e0b34a">新手任务 '+(i+1)+"/"+NEWBIE.length+'</span><span style="color:#8a877e">'+q.rew+'</span></div>'+
+  '<div class="sub">'+q.n+'：'+q.tip+'</div>';
+ const b=document.createElement("div");b.className="mini "+(ok?"y":"off");
+ b.textContent=ok?"领取奖励":"未完成";
+ b.style.marginTop="6px";
+ b.onclick=()=>{
+  if(qStep()!==i)return;
+  if(!q.done()){notice("还没完成："+q.n,"warn");return;}
+  q.give();S.quest.step=i+1;notice("新手任务完成："+q.rew,"gold");render();save();
+ };
+ box.appendChild(b);
+}
 function goalText(){
  if(S.realm===0&&S.prestige===0){
   if(S.lv<10)return "目标：先升到 Lv10（打当前图的怪，血少就点打坐）";
@@ -2570,6 +2609,7 @@ function renderFast(){
  if(bt)bt.textContent=S.realm===2?(tLeft>0?"历练 "+tLeft+"s":"历练副本（逐层）"):(tLeft>0?"历练 "+tLeft+"s":"历练副本");
  const rl=$("#runLine");if(rl)rl.textContent=runLineText();
  const gl=$("#goalLine");if(gl)gl.textContent=goalText();
+ renderQuestLine();
 }
 function render(refreshPanes){
  const gl0=$("#goalLine");if(gl0)gl0.textContent=goalText();
@@ -3151,12 +3191,24 @@ function renderWelfare(){
  DAILY.forEach(t=>{
   const got=S.dailyClaim[t.id],v=Math.min(t.goal,t.cur());
   const d=document.createElement("div");d.className="card";
-  d.innerHTML='<div class="row"><span style="color:'+(got?"#6b6870":"#d9d6cf")+'">'+t.n+'</span><span style="color:#8a877e">'+v+' / '+t.goal+'</span></div><div class="sub">奖励：'+t.rew+'</div>';
+  const pct=Math.min(100,Math.round(v/t.goal*100));
+  d.innerHTML='<div class="row"><span style="color:'+(got?"#6b6870":"#d9d6cf")+'">'+t.n+'</span><span style="color:#8a877e">'+v+' / '+t.goal+'</span></div>'+
+   '<div style="height:4px;background:#26232c;border-radius:2px;margin:5px 0"><div style="height:4px;width:'+pct+'%;background:'+(got?"#4a4652":"#d8a63c")+';border-radius:2px"></div></div>'+
+   '<div class="sub">奖励：'+t.rew+'</div>';
   const acts=document.createElement("div");acts.className="acts";
   const btn=document.createElement("div");btn.className="mini "+(got?"off":"y");
   btn.textContent=got?"已领取":(t.cur()>=t.goal?"领取":"未完成");btn.onclick=()=>claimDaily(t.id);
   acts.appendChild(btn);d.appendChild(acts);dl.appendChild(d);
  });
+ const allBtn=document.createElement("div");allBtn.className="mini y";allBtn.style.marginTop="6px";
+ allBtn.textContent="一键领取全部可领";
+ allBtn.onclick=()=>{
+  let n=0;
+  DAILY.forEach(t=>{if(!S.dailyClaim[t.id]&&t.cur()>=t.goal){claimDaily(t.id);n++;}});
+  if(!n)notice("现在没有可领的每日任务。","warn");else notice("已领取 "+n+" 项每日奖励。","gold");
+  renderWelfare();
+ };
+ dl.appendChild(allBtn);
  $("#dblState").textContent=dblText();
  const db=$("#dblBox");db.innerHTML="";
  const dc=document.createElement("div");dc.className="card";
@@ -3376,6 +3428,9 @@ function offlineSettle(){
   S.spirit=(S.spirit||0)+sp;S.offReport=r;r.sp=sp;
   if(gap>=7200){S.ticket=(S.ticket||0)+1;r.ticket=1;}
  }
+ const kpm=S.avgKill?Math.round(60000/S.avgKill):0;
+ r.estKill=kpm?Math.round(kpm*(gap/60)*0.6):0;
+ r.kpm=kpm;
  S.offReport=r;
  if(p||g||e)notice("离线 "+Math.round(gap/60)+" 分钟：泡点 +"+p+"、金币 "+nf(g)+"、经验 "+nf(e)+"。","gold");
 }
@@ -3385,7 +3440,7 @@ function showOffReport(){
  if(!m||!b)return;
  const line=(k,v)=>'<div><span style="color:#8a877e">'+k+'</span> <b>'+v+'</b></div>';
  b.innerHTML=line("离线时长",r.min+" 分钟")+line("泡点",nf(r.p))+line("金币",nf(r.g))+
-  line("经验",nf(r.e))+(r.sp?line("灵晶（归来奖励）",nf(r.sp)):"")+(r.ticket?line("保底券","×1（离线 2 小时以上）"):"")+(r.up?"<div>等级 <b>+"+r.up+"（现 Lv"+r.lv+"）</b></div>":"")+
+  line("经验",nf(r.e))+(r.estKill?line("同期预计击杀（按最近 "+r.kpm+" 只/分 估算）",nf(r.estKill)+" 只"):line("预计击杀","在线时间太短，暂无节奏样本"))+(r.sp?line("灵晶（归来奖励）",nf(r.sp)):"")+(r.ticket?line("保底券","×1（离线 2 小时以上）"):"")+(r.up?"<div>等级 <b>+"+r.up+"（现 Lv"+r.lv+"）</b></div>":"")+
   '<div style="margin-top:8px;color:#8a877e">离线按在线收益的 60% 折算，最长结算 8 小时。</div>';
  m.style.display="flex";
  const resume=$("#btnOffResume"),close=$("#btnOffClose");
@@ -3402,8 +3457,17 @@ function showInfo(title,html){
 function powerSplit(){
  const st=stats(),p=calcPower(st),sp=st._split;const line=(k,v)=>'<div class="row"><span>'+k+'</span><span>'+v+'</span></div>';
  if(!sp)return '<div class="sub">当前战力 '+nf(p)+'。进入大世界后会显示逐项拆解（基础/道行/灵器/共鸣/里程碑/倍率）。</div>'+line("攻击",nf(st.atkMax))+line("防御",nf(st.defMax))+line("生命",nf(st.hp));
+ const bar=(name,v,color)=>{
+  const pc=Math.max(0,Math.min(100,v));
+  return '<div class="row" style="display:block"><span>'+name+' <b style="color:'+color+'">'+Math.round(v*10)/10+'%</b></span>'+
+   '<div style="height:5px;background:#26232c;border-radius:3px;margin:3px 0 6px"><div style="height:5px;width:'+pc+'%;background:'+color+';border-radius:3px"></div></div></div>';
+ };
+ const totAtk=(sp.baseAtk||0)+(sp.dpAtk||0)+(sp.artAtk||0);
  const rows=[
   line("综合战力",nf(p)),
+  bar("攻击基础（等级）占比",totAtk?sp.baseAtk/totAtk*100:0,"#8a877e"),
+  bar("道行加成占比",totAtk?sp.dpAtk/totAtk*100:0,"#6fa8dc"),
+  bar("灵器加成占比",totAtk?sp.artAtk/totAtk*100:0,"#d8a63c"),
   line("攻击基础（等级）",nf(sp.baseAtk)),
   line("道行加成",nf(sp.dpAtk)),
   line("灵器加成",nf(sp.artAtk)),
@@ -3619,7 +3683,7 @@ function bind(){
  $("#btnRest").onclick=()=>{
   const now=Date.now();
   if(now<sitReady){notice("气息没调匀，再等 "+Math.ceil((sitReady-now)/1000)+" 秒。","warn");return;}
-  sitReady=now+60000;S.hp=stats().hp;S.mp=maxMp();
+  sitReady=now+60000;S.hp=stats().hp;S.mp=maxMp();S.sitCount=(S.sitCount||0)+1;
   notice("打坐完成，生命与气力尽复（下次 60 秒）。","good");render();
  };
  $("#btnBoss").onclick=()=>{
