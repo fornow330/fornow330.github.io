@@ -1,2 +1,2 @@
-8ab54b297deeee04bc8f0bfe8f83efc3c637596a / 191077 bytes / md5 78d61429fef9ada23e0e7837c537e032
-v4.5 存档三快照+IndexedDB双写·试炼塔扫荡·共鸣进度·三档收益对照·世界进度·掉落保护·轻量渲染
+4bc116b06e02e066ad40b94cbab228da116e990b / 192040 bytes / md5 978b136ff980c15bf8db5eabf52ab375
+v4.6 天罚难度移入设置·秘境四层·点击逐层连战·等级不足自动退出
