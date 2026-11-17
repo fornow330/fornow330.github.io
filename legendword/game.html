@@ -100,6 +100,13 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
 .subtabs{display:flex;gap:5px;margin-bottom:8px;overflow-x:auto}
 .st{flex:0 0 auto;padding:6px 11px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);font-size:12px;color:var(--dim)}
 .st.on{border-color:var(--gold);color:var(--gold2);background:#211d14}
+body.dense .card .sub,body.dense .foot{font-size:10px}
+body.dense .mini{font-size:10.5px;padding:5px 0}
+body.dense .chips .chip{font-size:10.5px;padding:4px 8px}
+body.big{font-size:15px}
+body.big .card .sub,body.big .foot{font-size:12.5px}
+body.big .mini{font-size:12.5px;padding:7px 0}
+body.big .chips .chip{font-size:12.5px;padding:6px 11px}
 </style>
 </head>
 <body>
@@ -203,6 +210,12 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
   </div>
 
   <div class="pane" id="pane5">
+    <div class="sec-t">界面档位 <em>小屏 / 大字</em></div>
+    <div class="quick">
+      <div class="mini b" id="uiDense">紧凑</div>
+      <div class="mini b" id="uiNormal">标准</div>
+      <div class="mini b" id="uiBig">大字</div>
+    </div>
     <div class="sec-t">天罚难度 <em id="tfState">常态</em></div>
     <div class="quick" id="tfPick">
       <div class="mini b" data-tf="0">常态</div>
@@ -260,7 +273,7 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
 /* ============ 可调数值 ============ */
 let CONFIG={
  expRate:1.15,dropRate:0.95,monsterHpRate:1.0,monsterAtkRate:1.25,
- goldRate:1.0,crystalRate:1.0,spiritRate:1.0,bossInWild:0.03,pointRate:1,offlineRate:.5,
+ goldRate:1.0,crystalRate:1.0,spiritRate:1.0,bossInWild:0.03,pointRate:1,offlineRate:.5,dropAlert:true,
  autoFight:true,autoPotion:true,autoEquip:true,autoRecycle:true,autoCast:true,autoAdvance:true,autoMerge:false,
  tickMs:700,saveSec:5,maxLog:80
 };
@@ -271,6 +284,7 @@ const CFG_DEF=[
  {k:"monsterAtkRate",n:"怪物攻击",tip:"越小你越抗揍",min:.05,max:20,step:.05},
  {k:"goldRate",n:"金币倍率",tip:"影响掉钱",min:.1,max:200,step:.1},
  {k:"crystalRate",n:"水晶爆率",tip:"普通怪掉水晶概率（基准 6%）",min:0,max:200,step:.01},
+ {k:"dropAlert",n:"稀有出货提醒",tip:"传说及以上、专属灵器出货时震动＋提示",type:"bool"},
  {k:"offlineRate",n:"离线折算比例",tip:"0.5=在线收益的一半，离线最长 8 小时",min:0,max:1,step:0.05},
  {k:"spiritRate",n:"灵晶爆率",tip:"大世界打怪/历练的灵晶倍率",min:0,max:200,step:.1},
  {k:"bossInWild",n:"野怪出BOSS率",tip:"0=只靠按钮",min:0,max:1,step:.01},
@@ -416,7 +430,7 @@ function blank(){
 }
 let S=blank();
 let cur=null,uid=1,sitReady=0,tickTimer=null,saveTimer=null,rateAcc={g:0,e:0,ms:0};
-let bagView={filter:"all",shown:24},charView=0,autoMergeTick=0;
+let bagView={filter:"all",shown:24,slot:""},charView=0,autoMergeTick=0;
 
 /* ============ 工具 ============ */
 const $=s=>document.querySelector(s);
@@ -1380,6 +1394,7 @@ function grantGrowArt(){
  S.art[kind]=it;
  const gs=growArtSlots();S.artGrow=gs[0];
  log("★★ 历练秘境深处，一尊专属灵器认你为主："+artTitle(it)+"（"+it.affs.length+" 条词条，已集 "+gs.length+"/6）","boss");
+ try{if(CONFIG.dropAlert&&navigator&&navigator.vibrate)navigator.vibrate([30,40,30]);}catch(e){}
  notice("★ 获得专属灵器（"+gs.length+"/6）：随等级提升品质与词条，999 级为神上品 "+maxAffCount()+" 词条。","gold");
  render();save();
 }
@@ -1832,6 +1847,10 @@ function canAutoSell(it){
 }
 function addItem(it){
  runStat.drop++;
+ if(CONFIG.dropAlert&&(it.q>=4||it.grow)){
+  try{if(navigator&&navigator.vibrate)navigator.vibrate(40);}catch(e){}
+  toast("★ 稀有出货："+fullName(it),"gold");
+ }
  S.bag.push(it);dailyAdd("drops",1);
  log("◆ 掉落 "+fullName(it)+"  "+itemSub(it),"drop");
  autoEquip(it);
@@ -2420,7 +2439,7 @@ function checkAch(){
  for(const a of ACHS){
   if(S.ach[a.id])continue;
   let ok=false;try{ok=a.chk();}catch(e){}
-  if(ok){S.ach[a.id]=1;S.crystal+=a.r;S.fame+=10;log("🏆 成就「"+a.n+"」，水晶 ×"+a.r,"gold");}
+  if(ok){S.ach[a.id]=1;S.crystal+=a.r;S.fame+=10;S.achNew=(S.achNew||0)+1;log("🏆 成就「"+a.n+"」，水晶 ×"+a.r,"gold");}
  }
 }
 
@@ -2624,7 +2643,8 @@ function render(refreshPanes){
   if(S.realm!==2){wp.textContent="";return;}
   const cap=levelCap();const w=Math.max(0,S.lv-200);
   const nextMile=50-((S.dp.atk||0)%50);
-  wp.textContent="世界进度：Lv"+S.lv+" / "+cap+" · 下一里程碑还差 "+nextMile+" 层道行 · 距离上限 "+(cap-S.lv)+" 级";
+  const list=curMaps();const nxt=list[(S.map||0)+1];
+  wp.textContent="世界进度：Lv"+S.lv+" / "+cap+(nxt?(" · 距「"+nxt.n+"」还差 "+Math.max(0,nxt.lv[0]-S.lv)+" 级"):"")+" · 下个道行里程碑还差 "+nextMile+" 层";
  })();
  const evK=worldEvNow(),evLine=$("#evLine");
  const evAct=(S.evAct&&S.evAct.k===evK)?S.evAct:null;
@@ -2651,6 +2671,8 @@ function affBlock(it){
  return '<div class="aff">'+it.affs.map(a=>'<span style="color:'+affColor(a.k)+'">'+affText(a)+'</span>').join(" ｜ ")+'</div>';
 }
 function bagPass(it){
+ if(bagView.slot&&it.slot!==bagView.slot)return false;
+ if(bagView.filter==="lock")return !!it.lock;
  if(bagView.filter==="better")return score(it)>(S.eq[it.slot]?score(S.eq[it.slot]):0);
  if(bagView.filter==="empty")return !S.eq[it.slot];
  if(bagView.filter==="rare")return it.q>=3;
@@ -2665,13 +2687,33 @@ function renderBag(){
   better:S.bag.filter(x=>score(x)>(S.eq[x.slot]?score(S.eq[x.slot]):0)).length,
   empty:S.bag.filter(x=>!S.eq[x.slot]).length,
   rare:S.bag.filter(x=>x.q>=3).length,
+  lock:S.bag.filter(x=>x.lock).length,
   keep:S.bag.filter(hasRare).length};
- [["all","全部"],["better","能变强"],["empty","空部位"],["rare","史诗+"],["keep","稀有词条"]].forEach(([k,n])=>{
+ [["all","全部"],["better","能变强"],["empty","空部位"],["rare","史诗+"],["lock","已锁"],["keep","稀有词条"]].forEach(([k,n])=>{
   const d=document.createElement("div");d.className="chip"+(bagView.filter===k?" on":"");
   d.textContent=n+" "+cnt[k];
   d.onclick=()=>{bagView.filter=k;bagView.shown=24;renderBag();};
   chips.appendChild(d);
  });
+ const slotRow=document.createElement("div");slotRow.className="chips";slotRow.style.marginTop="4px";
+ const none=document.createElement("div");none.className="chip"+(bagView.slot?"":" on");none.textContent="不限部位";
+ none.onclick=()=>{bagView.slot="";renderBag();};slotRow.appendChild(none);
+ SLOTS.forEach(sl=>{
+  const d=document.createElement("div");d.className="chip"+(bagView.slot===sl.k?" on":"");
+  d.textContent=sl.n;
+  d.onclick=()=>{bagView.slot=bagView.slot===sl.k?"":sl.k;renderBag();};
+  slotRow.appendChild(d);
+ });
+ if(bagView.slot){
+  const lockAll=document.createElement("div");lockAll.className="chip";lockAll.textContent="批锁当前筛选";
+  lockAll.onclick=()=>{
+   const list0=S.bag.filter(bagPass);let n0=0;
+   list0.forEach(x=>{if(!x.lock){x.lock=1;n0++;}});
+   notice("已锁定 "+n0+" 件（当前筛选）。","gold");renderBag();save();
+  };
+  slotRow.appendChild(lockAll);
+ }
+ try{if(chips.parentNode&&chips.parentNode.insertBefore)chips.parentNode.insertBefore(slotRow,chips.nextSibling);}catch(e){}
  const list=S.bag.filter(bagPass);
  if(!list.length){box.innerHTML='<div class="empty">'+(S.bag.length?"这个筛选下没货，换个看看。":"背包空着，出去打点吧。")+'</div>';return;}
  for(const it of list.slice(0,bagView.shown)){
@@ -2772,13 +2814,21 @@ function renderChar(){
     c.appendChild(acts);
     const pr=document.createElement("div");pr.className="acts";pr.style.flexWrap="wrap";
     const prs=(it.pr||{});
+    const presetInfo=(k)=>{
+     const arr=prs[k];if(!arr||!arr.length)return "";
+     let sum=0;arr.forEach(x=>{sum+=Number(x.v)||0;});
+     return "（"+arr.length+"条/Σ"+Math.round(sum*10)/10+"）";
+    };
     const pa=document.createElement("div");pa.className="mini b";
-    pa.textContent="存方案A"+(prs.a?"（"+prs.a.length+"）":"");
+    pa.textContent="存方案A"+(presetInfo("a")||"");
     pa.onclick=()=>artPresetSave(sl,"a");pr.appendChild(pa);
+    const cmp=document.createElement("div");cmp.className="sub";cmp.style.color="#8a877e";
+    cmp.textContent="方案对比：A"+(presetInfo("a")||" 未存")+" · B"+(presetInfo("b")||" 未存");
+    pr.appendChild(cmp);
     const ua=document.createElement("div");ua.className="mini "+(prs.a?"y":"off");
     ua.textContent="套用A";ua.onclick=()=>artPresetApply(sl,"a");pr.appendChild(ua);
     const pb=document.createElement("div");pb.className="mini b";
-    pb.textContent="存方案B"+(prs.b?"（"+prs.b.length+"）":"");
+    pb.textContent="存方案B"+(presetInfo("b")||"");
     pb.onclick=()=>artPresetSave(sl,"b");pr.appendChild(pb);
     const ub=document.createElement("div");ub.className="mini "+(prs.b?"y":"off");
     ub.textContent="套用B";ub.onclick=()=>artPresetApply(sl,"b");pr.appendChild(ub);
@@ -3402,9 +3452,17 @@ function diagHtml(){
 }
 function renderAchWall(){
  const box=$("#achWall");if(!box)return;
+ const tab=document.querySelector('.tabs .tab[data-p="4"]');
+ if(tab)tab.textContent=(S.achNew?"福利 ●":"福利");
  const got=ACHS.filter(a=>S.ach[a.id]).length;
  const st=$("#achState");if(st)st.textContent=got+" / "+ACHS.length;
  box.innerHTML="";
+ if(S.achNew){
+  const tip=document.createElement("div");tip.className="sub";tip.style.color="#e0b34a";
+  tip.textContent="新达成 "+S.achNew+" 条成就，水晶已自动入账。";
+  box.appendChild(tip);
+  S.achNew=0;save();
+ }
  const grid=document.createElement("div");grid.className="quick";
  ACHS.forEach(a=>{
   const on=!!S.ach[a.id];
@@ -3456,7 +3514,9 @@ async function exportSave(){
  try{txt=await packSave(S);}catch(e){txt=JSON.stringify(S);}
  box.value=txt;
  const ok=copyText(txt);
- log(ok?"存档已导出并复制（"+txt.length+" 字符）。":"存档已导出到框里（"+txt.length+" 字符），长按复制保存。","sys");
+ const kb=Math.round(txt.length/1024*10)/10;
+ const head=txt.slice(0,2)==="G1"?"（已压缩）":"（未压缩，浏览器不支持 gzip）";
+ log(ok?("存档已导出并复制"+head+"，约 "+kb+" KB。"):("存档已导出到框里"+head+"，约 "+kb+" KB，长按复制。"),"sys");
 }
 async function importSave(){
  const txt=String($("#saveBox").value||"").trim();
@@ -3464,7 +3524,7 @@ async function importSave(){
  try{
   const o=await unpackSave(txt);if(!o||typeof o.lv!=="number")throw 0;
   S=normalizeState(o);
-  cur=null;S.mode="normal";$("#log").innerHTML="";spawn();renderChips();render();save();
+  cur=null;S.mode="normal";logBuf=[];renderLog();spawn();renderChips();applyUiMode(S.uiMode);render();save();
   notice("存档导入成功：Lv"+S.lv+"、金币 "+nf(S.gold)+"。","gold");
  }catch(e){
   notice(e&&e.message==="need-gz"?"这段存档需要在线版/新版APK才能解压，请更新后再导入。":"这段存档读不出来，确认复制完整。","warn");
@@ -3536,7 +3596,13 @@ function renderRec(){
  const b=document.createElement("div");b.className="mini y";b.textContent=S.rec.keepRare?"关掉保护":"开启保护";
  b.onclick=()=>{S.rec.keepRare=!S.rec.keepRare;renderRec();};acts.appendChild(b);c2.appendChild(acts);box.appendChild(c2);
 }
+function applyUiMode(m){
+ S.uiMode=m||"normal";
+ const b=document.body;if(b&&b.classList){b.classList.remove("dense","big");if(S.uiMode==="dense")b.classList.add("dense");if(S.uiMode==="big")b.classList.add("big");}
+ [["uiDense","dense"],["uiNormal","normal"],["uiBig","big"]].forEach(([id,mk])=>{const el=$("#"+id);if(el)el.className="mini "+(S.uiMode===mk?"y":"b");});
+}
 function renderSet(){
+ applyUiMode(S.uiMode);
  const tf=mapTier();
  document.querySelectorAll("#tfPick .mini").forEach(b=>b.className="mini "+(Number(b.dataset.tf)===tf?"y":"b"));
  const ts=$("#tfState");if(ts)ts.textContent=TIANFA[tf].n+" · 强度×"+TIANFA[tf].mul+" / 掉落×"+TIANFA[tf].drop;
@@ -3611,6 +3677,10 @@ function bind(){
  $("#btnExport").onclick=exportSave;
  $("#btnImport").onclick=importSave;
  $("#btnReset").onclick=resetAll;
+ const ud=$("#uiDense"),un=$("#uiNormal"),ub=$("#uiBig");
+ if(ud)ud.onclick=()=>{applyUiMode("dense");save();};
+ if(un)un.onclick=()=>{applyUiMode("normal");save();};
+ if(ub)ub.onclick=()=>{applyUiMode("big");save();};
 }
 
 function idbBootLoad(){
@@ -3648,7 +3718,7 @@ function boot(){
  if(S.daily.d!==dayKey())S.daily={d:dayKey(),kills:0,gold:0,drops:0,boss:0,rec:0,merge:0};
  if(S.hp<=0)S.hp=stats().hp;
  if(S.mp<=0)S.mp=maxMp();
- spawn();renderChips();render();restartTimers();
+ spawn();renderChips();applyUiMode(S.uiMode);render();restartTimers();
  window.addEventListener("pagehide",save);
  window.addEventListener("beforeunload",save);
 }
