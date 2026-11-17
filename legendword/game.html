@@ -108,7 +108,7 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
   <h1>传奇文字 · <span id="hName">布衣战士</span><span id="hGoldTxt">0 金币</span></h1>
   <div class="kv">
     <span>Lv <b id="hLv">1</b></span>
-    <span>战力 <b id="hPower">0</b></span>
+    <span id="powTap" style="cursor:pointer">战力 <b id="hPower">0</b> <i style="font-style:normal;color:#8a877e;font-size:10px">明细</i></span>
     <span><em id="hCurLbl" style="font-style:normal">水晶</em> <b id="hCrystal">0</b></span>
     <span>泡点 <b id="hPoint">0</b></span>
   </div>
@@ -151,6 +151,11 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
       <div class="btns"><div class="btn" id="btnTowerClose">返回战斗</div></div>
     </div>
     <div class="skl" id="skillBtns"></div>
+    <div class="quick" id="logChips" style="margin-top:4px">
+      <div class="mini b" data-lm="0">全部</div>
+      <div class="mini b" data-lm="1">精简</div>
+      <div class="mini b" data-lm="2">只看出货</div>
+    </div>
     <div id="log"></div>
   </div>
 
@@ -188,6 +193,8 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
     <div id="questList"></div>
     <div class="sec-t">词缀图鉴 <em>永久全属性加成</em></div>
     <div id="affDexBox"></div>
+    <div class="sec-t">成就墙 <em id="achState"></em></div>
+    <div id="achWall"></div>
     <div class="sec-t">激活码 <em>输入兑换</em></div>
     <div class="card"><div class="row"><input id="giftInput" placeholder="输入激活码" autocomplete="off"></div>
       <div class="acts"><div class="mini b" id="btnGift">兑换</div></div></div>
@@ -205,6 +212,8 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
     </div>
     <div class="sec-t">自动回收设置 <em>挂机时自动处理</em></div>
     <div id="recCfg"></div>
+    <div class="sec-t">数值体检 <em>实时算给你看</em></div>
+    <div id="diagBox"></div>
     <div class="sec-t">存档 <em>换手机、备份用</em></div>
     <div class="card">
       <div class="sub" id="saveWhere">自动存档位置：浏览器本地存储（App 内写入手机私有目录并留一份备份，关掉再开不会丢）。</div>
@@ -228,6 +237,15 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
     <div class="acts" style="justify-content:center;margin-top:10px">
       <div class="mini y" id="btnOffResume">继续挂机</div>
       <div class="mini b" id="btnOffClose">知道了</div>
+    </div>
+  </div>
+</div>
+<div id="infoModal" class="modal" style="display:none">
+  <div class="modalCard">
+    <div class="mTitle" id="infoTitle">明细</div>
+    <div id="infoBody" class="mBody"></div>
+    <div class="acts" style="justify-content:center;margin-top:10px">
+      <div class="mini b" id="btnInfoClose">知道了</div>
     </div>
   </div>
 </div>
@@ -400,7 +418,10 @@ const rnd=(a,b)=>a+Math.random()*(b-a);
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const r1=v=>Math.round(v*10)/10;
 function nf(n){n=Math.floor(n);if(n>=1e8)return (n/1e8).toFixed(2)+"亿";if(n>=1e4)return (n/1e4).toFixed(1)+"万";return String(n);}
+let logMode=0;
 function log(t,cls){
+ if(logMode===2&&!(cls==="drop"||cls==="gold"))return;
+ if(logMode===1&&!cls)return;
  const box=$("#log");const p=document.createElement("p");if(cls)p.className=cls;
  p.textContent=t;box.insertBefore(p,box.firstChild);
  while(box.childElementCount>CONFIG.maxLog&&box.lastChild)box.removeChild(box.lastChild);
@@ -562,7 +583,7 @@ function bossChainAdd(){
 function nemTier(){return (S.nchain||0)+1;}          // 下一只宿敌的复仇重数：首只=1 重
 function nemKillPct(){const k=(S.nemArch&&S.nemArch.kills)||0;return Math.min(10,k);}
 /* ============ 天罚阶梯：同一地界三档烈度 ============ */
-const TIANFA=[{n:"常态",mul:1.0,drop:1.0,elite:0},{n:"凶险",mul:1.4,drop:1.6,elite:0.05},{n:"绝境",mul:1.9,drop:2.2,elite:0.10}];
+const TIANFA=[{n:"常态",mul:1.0,drop:1.0,elite:0},{n:"凶险",mul:1.4,drop:1.8,elite:0.05},{n:"绝境",mul:1.9,drop:2.5,elite:0.10}];
 function mapTier(){const t=(S.mapTier||{})[S.map||0];return t===undefined?0:t;}
 function setMapTier(t){S.mapTier=S.mapTier||{};S.mapTier[S.map||0]=t;log("【天罚】"+curMap().n+" 调整为「"+TIANFA[t].n+"」：怪物强度 ×"+TIANFA[t].mul+"、掉落 ×"+TIANFA[t].drop+"。","boss");render();save();}
 /* ============ 词缀共鸣：同一件灵器堆同类词条 ============ */
@@ -741,7 +762,10 @@ function worldStats(){
  return {atkMin:Math.round(atk*0.9),atkMax:Math.round(atk*1.1),defMin:Math.round(def),defMax:Math.round(def*1.15),
   hp:Math.round(hpm),spd:6,luck:Math.min(12,Math.round((5+(ab.luck||0))*10)/10),luckRes:4,
   fix:Math.round(ab.fix||0),amp:r1((ab.amp||0)+rs.amp),red:Math.min(70,r1((ab.red||0)+rs.red+dpMile("def")*2)),ele:0,
-  res:Math.min(40,Math.round((ab.res||0)*10)/10),crit,cdmg:rs.cdmg+dpC};
+  res:Math.min(40,Math.round((ab.res||0)*10)/10),crit,cdmg:rs.cdmg+dpC,
+  _split:{baseAtk:200+w*120,dpAtk:(d.atk||0)*140,artAtk:ab.atk||0,artPct:r1(ab.atkp||0),resoAtk:rs.atkP,
+   dpMileAtk:dpA,awAtk:Math.round(awAtk),aff:affDexPct(),nem:nemKillPct(),grudge:grudgePct(),xm:xmPct(),title:S.nemBonus||0,
+   dkp:Math.round(dkp*1000)/1000}};
 }
 function calcPower(st){
  return Math.round(st.atkMin*1.6+st.atkMax*1.9+st.defMin*1.2+st.defMax*1.5+st.hp*0.3
@@ -1310,7 +1334,7 @@ function grantGrowArt(){
 }
 function worldUpCost(kind){
  const d=S.dp||{};const n=(kind==="hpm"?d.hpm:(d[kind]||0))||0;
- return Math.round(60*Math.pow(1.32,n));
+ return Math.round(60*Math.pow(n+1,2.0));
 }
 function worldUp(kind){
  const c=worldUpCost(kind);
@@ -1593,7 +1617,7 @@ function winMonster(){
  if(boss)questAdd("boss",1);
  if(S.realm===2){
   const nsp=cur.nemesis?(2+Math.min(3,cur.nemTier||0)):1;
-  const sp=Math.max(0,Math.round((3+Math.floor(Math.max(0,cur.lv-200)/25))*(cur.elite?2:1)*(worldEvNow()==="horde"?1.5:1)*TIANFA[mapTier()].drop*CONFIG.spiritRate*nsp));
+  const sp=Math.max(0,Math.round((5+Math.floor(Math.max(0,cur.lv-200)/8))*(cur.elite?2:1)*(worldEvNow()==="horde"?1.5:1)*TIANFA[mapTier()].drop*CONFIG.spiritRate*nsp));
   S.spirit+=sp;
   if(boss){
   const rich=!!(cur.affs&&cur.affs.length);
@@ -2887,7 +2911,7 @@ function renderWelfare(){
   const h2=document.createElement("div");h2.className="sec-t";h2.textContent="水晶商店";sl.appendChild(h2);
   CRY.forEach(([k,n,c])=>sl.appendChild(mk(k,n,c,"水晶")));
  }
- renderQuest();renderAffDex();
+ renderQuest();renderAffDex();renderAchWall();
  const hold=document.createElement("div");hold.className="foot";
  hold.textContent="持有：强化石 "+S.mat.enh+" · 洗炼石 "+S.mat.stone+" · 升星石 "+S.mat.star+
   " · 古物碎片 "+S.mat.relic+" · 生肖石 "+S.mat.zodiac+" · 传世令 "+S.mat.legacy+" · 至尊石 "+S.mat.supreme;
@@ -2964,12 +2988,14 @@ function restartTimers(){
  },Math.max(1,CONFIG.saveSec)*1000);
 }
 function save(){
+ S.ver=4;
  S.offTs=Date.now();
  const js=JSON.stringify(S);
  try{localStorage.setItem(KEY,js);}catch(e){}
  try{if(window.NativeStore&&NativeStore.save)NativeStore.save(js);}catch(e){}
 }
 function normalizeState(o){
+ o.ver=Math.min(4,Number(o.ver)||0);
  const b=blank();
  const st=Object.assign(b,o||{});
  st.mat=Object.assign({},b.mat,st.mat||{});
@@ -3012,20 +3038,31 @@ function normalizeState(o){
  return st;
 }
 function load(){
- const parse=(raw)=>{try{if(!raw)return null;const o=JSON.parse(raw);if(!o||typeof o.lv!=="number")return null;return o;}catch(e){return null;}};
+ const parse=(raw)=>{
+  try{
+   if(!raw)return null;const o=JSON.parse(raw);
+   if(!o||typeof o!=="object")return null;
+   if(typeof o.lv!=="number"||o.lv<1||o.lv>2000)return null;
+   if(typeof o.gold!=="number"||!isFinite(o.gold)||o.gold<0)return null;
+   if(o.spirit!==undefined&&(!isFinite(o.spirit)||o.spirit<0))return null;
+   if(o.dp&&typeof o.dp!=="object")return null;
+   return o;
+  }catch(e){return null;}};
  let ls=null,ns=null;
  try{ls=parse(localStorage.getItem(KEY));}catch(e){}
  try{if(window.NativeStore&&NativeStore.load)ns=parse(NativeStore.load());}catch(e){}
  const score=(o)=>o?(Number(o.offTs)||0):-1;
- const pick=(score(ns)>score(ls)?ns:ls)||ls||ns;
- if(!pick)return false;
- try{
-  S=normalizeState(pick);
-  S.mode="normal";cur=null;
-  try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
-  try{if(window.NativeStore&&NativeStore.save)NativeStore.save(JSON.stringify(S));}catch(e){}
-  return true;
- }catch(e){return false;}
+ const list=[ns,ls].filter(Boolean).sort((a,b)=>score(b)-score(a));
+ for(const cand of list){
+  try{
+   S=normalizeState(cand);
+   S.mode="normal";cur=null;
+   try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+   try{if(window.NativeStore&&NativeStore.save)NativeStore.save(JSON.stringify(S));}catch(e){}
+   if(ls&&!ns){} return true;
+  }catch(e){ continue; }
+ }
+ return false;
 }
 function offlineSettle(){
  const gap=Math.min(8*3600,Math.max(0,(Date.now()-(S.offTs||Date.now()))/1000));
@@ -3036,7 +3073,13 @@ function offlineSettle(){
  const lv0=S.lv;
  S.point+=p;S.gold+=g;S.exp+=e;
  while(S.exp>=need(S.lv)&&S.lv<levelCap()){S.exp-=need(S.lv);S.lv++;S.hp=stats().hp;S.mp=maxMp();}
- S.offReport={min:Math.round(gap/60),p,g,e,up:S.lv-lv0,lv:S.lv};
+ const r={min:Math.round(gap/60),p,g,e,up:S.lv-lv0,lv:S.lv};
+ if(S.realm===2&&gap>=120){
+  const sp=Math.round(Math.min(8*3600,gap)/60*(5+Math.floor(Math.max(0,S.lv-200)/8))*CONFIG.spiritRate*0.5);
+  S.spirit=(S.spirit||0)+sp;S.offReport=r;r.sp=sp;
+  if(gap>=7200){S.ticket=(S.ticket||0)+1;r.ticket=1;}
+ }
+ S.offReport=r;
  if(p||g||e)notice("离线 "+Math.round(gap/60)+" 分钟：泡点 +"+p+"、金币 "+nf(g)+"、经验 "+nf(e)+"。","gold");
 }
 function showOffReport(){
@@ -3045,13 +3088,84 @@ function showOffReport(){
  if(!m||!b)return;
  const line=(k,v)=>'<div><span style="color:#8a877e">'+k+'</span> <b>'+v+'</b></div>';
  b.innerHTML=line("离线时长",r.min+" 分钟")+line("泡点",nf(r.p))+line("金币",nf(r.g))+
-  line("经验",nf(r.e))+(r.up?"<div>等级 <b>+"+r.up+"（现 Lv"+r.lv+"）</b></div>":"")+
+  line("经验",nf(r.e))+(r.sp?line("灵晶（归来奖励）",nf(r.sp)):"")+(r.ticket?line("保底券","×1（离线 2 小时以上）"):"")+(r.up?"<div>等级 <b>+"+r.up+"（现 Lv"+r.lv+"）</b></div>":"")+
   '<div style="margin-top:8px;color:#8a877e">离线按在线收益的 60% 折算，最长结算 8 小时。</div>';
  m.style.display="flex";
  const resume=$("#btnOffResume"),close=$("#btnOffClose");
  if(resume)resume.onclick=()=>{m.style.display="none";S.auto=true;CONFIG.autoFight=true;
   S.offReport=null;save();toast("继续挂机。","good");};
  if(close)close.onclick=()=>{m.style.display="none";S.offReport=null;save();};
+}
+function showInfo(title,html){
+ const m=$("#infoModal"),t=$("#infoTitle"),b=$("#infoBody");
+ if(!m||!t||!b)return;
+ t.textContent=title;b.innerHTML=html;m.style.display="flex";
+ const c=$("#btnInfoClose");if(c)c.onclick=()=>{m.style.display="none";};
+}
+function powerSplit(){
+ const st=stats(),p=calcPower(st),sp=st._split;const line=(k,v)=>'<div class="row"><span>'+k+'</span><span>'+v+'</span></div>';
+ if(!sp)return '<div class="sub">当前战力 '+nf(p)+'。进入大世界后会显示逐项拆解（基础/道行/灵器/共鸣/里程碑/倍率）。</div>'+line("攻击",nf(st.atkMax))+line("防御",nf(st.defMax))+line("生命",nf(st.hp));
+ const rows=[
+  line("综合战力",nf(p)),
+  line("攻击基础（等级）",nf(sp.baseAtk)),
+  line("道行加成",nf(sp.dpAtk)),
+  line("灵器加成",nf(sp.artAtk)),
+  '<div class="sub" style="margin-top:6px;color:#e0b34a">百分比乘区</div>',
+  line("灵器攻击 %",(sp.artPct||0)+"%"),
+  line("词缀共鸣 %",sp.resoAtk+"%"),
+  line("道行里程碑 %",sp.dpMileAtk+"%"),
+  line("器灵觉醒 %",sp.awAtk+"%"),
+  '<div class="sub" style="margin-top:6px;color:#e0b34a">全局倍率</div>',
+  line("灵晶图鉴",sp.aff+"%"),
+  line("宿敌斩获",sp.nem+"%"),
+  line("怨气结晶",sp.grudge+"%"),
+  line("心魔劫",sp.xm+"%"),
+  line("斩仇称号",sp.title+"%"),
+  line("合计 ×",sp.dkp)
+ ];
+ return rows.join("");
+}
+function diagHtml(){
+ const m=curMap(),one=monPack(S.lv,1,m);
+ const perKill=Math.max(1,one.exp), needNow=need(S.lv), kills=Math.ceil(needNow/perKill);
+ const expSec=S.rate.e||0;
+ const km=expSec>0?Math.min(600,Math.round(expSec*60/perKill)):0;
+ const spKill=(S.realm===2?Math.round((5+Math.floor(Math.max(0,S.lv-200)/8))*TIANFA[mapTier()].drop*CONFIG.spiritRate):0);
+ const spMin=km?Math.round(km*spKill):0;
+ const cost=worldUpCost("atk"), minNeed=spMin>0?Math.ceil(cost/spMin):0;
+ const line=(k,v)=>'<div class="row"><span>'+k+'</span><span>'+v+'</span></div>';
+ let out=[];
+ out.push(line("下一级所需经验",nf(needNow)+"（约 "+kills+" 只同图怪）"));
+ if(S.realm===2){
+  out.push(line("当前每杀灵晶",nf(spKill)+"（"+TIANFA[mapTier()].n+" ×"+TIANFA[mapTier()].drop+"）"));
+  out.push(line("估每分钟灵晶",spMin?nf(spMin):"先挂一分钟再看"));
+  out.push(line("道行下一层",nf(cost)+(minNeed?"（约 "+minNeed+" 分钟）":"") ));
+  out.push(line("升级耗时",km?("约 "+Math.ceil(kills/km)+" 分钟/级"):"先挂一分钟再看"));
+  const perf=[0,1,2].map(i=>{const t=TIANFA[i];return t.n+" 收益指数 "+(t.drop/t.mul).toFixed(2);});
+  out.push('<div class="sub" style="margin-top:6px;color:#e0b34a">天罚性价比（掉落/强度）</div><div class="sub">'+perf.join(" · ")+'</div>');
+  out.push('<div class="sub" style="margin-top:6px;color:#e0b34a">各线收益（每次/每分钟）</div>');
+  out.push('<div class="sub">天关：'+nf(1200+S.lv*10)+' 灵晶 / 30 秒（每日 3 次）<br>秘境：'+MIJING.map(c=>c.n+" "+nf(Math.round((40+(S.lv-200)*1.2)*c.sp*CONFIG.spiritRate))).join(" · ")+'<br>BOSS：冷却 90 秒，灵晶约为普通怪的 3 倍＋专属灵器机缘</div>');
+ }else{
+  out.push(line("境界","凡界/天空不显示灵晶收支，进入大世界后开启"));
+ }
+ return out.join("");
+}
+function renderAchWall(){
+ const box=$("#achWall");if(!box)return;
+ const got=ACHS.filter(a=>S.ach[a.id]).length;
+ const st=$("#achState");if(st)st.textContent=got+" / "+ACHS.length;
+ box.innerHTML="";
+ const grid=document.createElement("div");grid.className="quick";
+ ACHS.forEach(a=>{
+  const on=!!S.ach[a.id];
+  const d=document.createElement("div");d.className="mini "+(on?"y":"off");
+  d.style.flex="1 1 30%";d.textContent=(on?"✔ ":"· ")+a.n;
+  d.title=a.d+"（奖励水晶 "+a.r+"）";
+  grid.appendChild(d);
+ });
+ box.appendChild(grid);
+ const tip=document.createElement("div");tip.className="foot";tip.textContent="成就在满足条件时自动解锁并入账水晶；灰灯是还没达成的目标。";
+ box.appendChild(tip);
 }
 function copyText(txt){
  try{if(typeof navigator!=="undefined"&&navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).catch(()=>{});return true;}}catch(e){}
@@ -3173,6 +3287,8 @@ function renderRec(){
  b.onclick=()=>{S.rec.keepRare=!S.rec.keepRare;renderRec();};acts.appendChild(b);c2.appendChild(acts);box.appendChild(c2);
 }
 function renderSet(){
+ const box=$("#diagBox");
+ if(box)box.innerHTML='<div class="card">'+diagHtml()+'<div class="sub" style="margin-top:6px;color:#8a877e">基于当前地图与天罚档位实时计算；经验速率取最近 30 秒实测，刚进游戏先挂一分钟再看。</div></div>';
  const un=isUnlocked();
  $("#cfgWrap").style.display=un?"block":"none";
  if(un&&$("#cfgList").childElementCount!==CFG_DEF.length)renderCfg();
@@ -3200,6 +3316,14 @@ function bind(){
   $("#towerPanel").style.display="block";
   $("#towerPanel").scrollIntoView&&$("#towerPanel").scrollIntoView({behavior:"smooth",block:"nearest"});
  };
+ document.querySelectorAll("#logChips .mini").forEach(b=>{
+  b.onclick=()=>{logMode=Number(b.dataset.lm||0);
+   document.querySelectorAll("#logChips .mini").forEach(x=>x.className="mini "+(x===b?"y":"b"));
+   if(logMode===0)toast("已显示全部日志。","good");
+   else if(logMode===1)toast("精简模式：只看系统与掉落。","good");
+   else toast("只看出货：掉落与灵晶。","good");};
+ });
+ const pt=$("#powTap");if(pt)pt.onclick=()=>showInfo("战力拆解",powerSplit());
  [0,1,2].forEach(i=>{const b=$("#btnTf"+i);if(b)b.onclick=()=>setMapTier(i);});
  $("#btnTg").onclick=()=>spawnTianGuan();
  $("#btnXm").onclick=()=>spawnMirror();
