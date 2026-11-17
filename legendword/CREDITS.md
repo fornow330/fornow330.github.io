@@ -7,11 +7,11 @@
 | 服务 | 用途 | 性质 |
 |---|---|---|
 | GitHub Pages / raw.githubusercontent.com | 源码托管、在线页 | GitHub 官方 |
-| fastly.jsdelivr.net | 分片加速（首选） | jsDelivr 官方 CDN |
-| ghproxy.net | 分片加速（备用） | 社区第三方镜像，仅转发 raw 内容 |
-| gh-proxy.com | 分片加速（备用二） | 社区第三方镜像，仅转发 raw 内容 |
+| fastly.jsdelivr.net | 资源加速（首选） | jsDelivr 官方 CDN |
+| ghproxy.net | 资源加速（备用） | 社区第三方镜像，仅转发 raw 内容 |
+| gh-proxy.com | 资源加速（备用二） | 社区第三方镜像，仅转发 raw 内容 |
 
-镜像只做文本转递，不参与构建；仓库内 14 个分片与 `legendword/game.html` 等价，可用 `cat legendword/c?? | base64 -d | gzip -d > game.html` 核对。
+镜像只做文本转递，不参与构建。
 
 ## 素材
 

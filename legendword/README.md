@@ -66,7 +66,7 @@
 
 - **协议**：**GPL-3.0**，全文见 [LICENSE](LICENSE) —— 可自由使用、修改、分发，但发行衍生版本时必须同样开源、保留版权与许可声明
 - **第三方与出处**：见 [CREDITS.md](CREDITS.md)
-- **可读源码**：[`legendword/game.html`](legendword/game.html)（完整的单文件游戏本体；由 `.github/workflows/assemble.yml` 在每次分片更新后自动还原并提交）
+- **可读源码**：[`legendword/game.html`](legendword/game.html)（完整的单文件游戏本体；由 `.github/workflows/assemble.yml` 在每次本体更新后自动同步）
 - **本地自己拼**：
 
 ```bash
@@ -77,8 +77,8 @@ cat legendword/c?? | base64 -d | gzip -d > game.html
 
 ```
 index.html               # 站点根，跳转 fornow.cc
-legendword/index.html    # 游戏加载器（解压分片、四级 CDN 回退）
-legendword/c00..c13      # 游戏本体，gzip+base64 分片，共 14 片
+legendword/index.html    # 游戏加载器（资源取回与 CDN 回退）
+legendword/              # 游戏本体与加密资源
 legendword/game.html     # 自动还原的可读源码（不要手改，会被覆盖）
 legendword/BUILD.txt     # 当前 BUILD 提交号 / 字节数 / md5
 LICENSE                  # GPL-3.0 全文

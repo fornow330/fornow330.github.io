@@ -32,7 +32,7 @@ Android WebView 外壳，启动时先竞速拉取本页（jsDelivr 各节点 + g
 ```
 index.html            入口页（本页面对应的页面）
 fornowai/index.html   App 拉取的入口页副本（与根页面内容一致）
-legendword/           文字传奇：game.html、分片 c02…、README.md、CREDITS.md、LICENSE
+legendword/           文字传奇：game.html、加载器与资源、README.md、CREDITS.md、LICENSE
 tidy-up/              三连收纳
 tycoon/               二合甜品小店
 vitrine/              其他页面资源
