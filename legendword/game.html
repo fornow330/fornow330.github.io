@@ -134,10 +134,12 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
     <div class="quick">
       <div class="mini r" id="btnTg">天关</div>
       <div class="mini r" id="btnXm">心魔</div>
+      <div class="mini p" id="btnVoid">虚空裂隙</div>
     </div>
     <div id="worldProg" class="sub" style="padding:0 4px 4px;color:#8a877e;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     <div id="battleHint" class="sub" style="padding:2px 4px 4px;color:#8a877e;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     <div id="evLine" class="sub" style="padding:2px 4px 6px;color:#8a877e"></div>
+    <div id="runLine" class="sub" style="padding:0 4px 6px;color:#8a877e;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     <div id="towerPanel" style="display:none">
       <div class="sec-t">试炼塔 · 500 级起 <em id="towerState"></em></div>
       <div id="towerList"></div>
@@ -421,13 +423,21 @@ const rnd=(a,b)=>a+Math.random()*(b-a);
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const r1=v=>Math.round(v*10)/10;
 function nf(n){n=Math.floor(n);if(n>=1e8)return (n/1e8).toFixed(2)+"亿";if(n>=1e4)return (n/1e4).toFixed(1)+"万";return String(n);}
-let logMode=0;
+let logMode=0,logBuf=[];
+function logPass(cls){
+ if(logMode===2)return cls==="drop"||cls==="gold"||cls==="boss";
+ if(logMode===1)return !!cls;
+ return true;
+}
+function esc0(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function renderLog(){
+ const box=$("#log");if(!box)return;
+ box.innerHTML=logBuf.filter(x=>logPass(x.cls)).map(x=>'<p'+(x.cls?' class="'+x.cls+'"':'')+'>'+esc0(x.t)+'</p>').join("");
+}
 function log(t,cls){
- if(logMode===2&&!(cls==="drop"||cls==="gold"))return;
- if(logMode===1&&!cls)return;
- const box=$("#log");const p=document.createElement("p");if(cls)p.className=cls;
- p.textContent=t;box.insertBefore(p,box.firstChild);
- while(box.childElementCount>CONFIG.maxLog&&box.lastChild)box.removeChild(box.lastChild);
+ logBuf.unshift({t:t,cls:cls||""});
+ while(logBuf.length>CONFIG.maxLog)logBuf.pop();
+ renderLog();
 }
 let toastTimer=null;
 function toast(msg,cls){
@@ -439,7 +449,7 @@ function bNotice(m,c){
  log(m,c);
  try{if(document.querySelector("#pane0").classList.contains("on"))toast(m,c);}catch(e){}
 }
-function trimLog(){const b=$("#log");while(b.childElementCount>CONFIG.maxLog&&b.lastChild)b.removeChild(b.lastChild);}
+function trimLog(){while(logBuf.length>CONFIG.maxLog)logBuf.pop();renderLog();}
 function dayKey(){const d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();}
 function hourNow(){return new Date().getHours();}
 function isDouble(){
@@ -716,6 +726,26 @@ const MIJING=[
  {n:"三层·绝地",lv:500,mul:2.6,sp:4.0,art:0.26},
  {n:"四层·幽冥",lv:700,mul:3.8,sp:6.0,art:0.35}
 ];
+const VOID_LV=900,VOID_SEC=60,VOID_CD=600000;
+function voidReady(){return S.realm===2&&S.lv>=VOID_LV&&Date.now()>=(S.voidReady||0);}
+function spawnVoid(){
+ if(S.realm!==2){notice("虚空裂隙只在大世界开放。","warn");return;}
+ if(S.lv<VOID_LV){notice("需 Lv"+VOID_LV+" 才可进入虚空裂隙。","warn");return;}
+ const now=Date.now();
+ if(now<(S.voidReady||0)){notice("裂隙未开，还要 "+Math.ceil(((S.voidReady||0)-now)/60000)+" 分钟。","warn");return;}
+ if(cur&&cur.tian){notice("天道还在场，先了结这一战。","warn");return;}
+ S.voidReady=now+VOID_CD;
+ const m=curMap();const p=monPack(S.lv,1.0,m);
+ const hp=Math.round(p.hp*6),atm=Math.round(p.atkMax*2.1);
+ cur={name:"虚空守卫",lv:S.lv,boss:true,voudn:true,ele:m.ele,
+  hp:hp,maxhp:hp,atkMin:Math.round(atm*0.9),atkMax:atm,def:Math.round(p.def*2.4),
+  exp:Math.round(p.exp*8),gold:Math.round(p.gold*8),poison:0,poisonDps:0};
+ setMonAffs(cur,rollMonAffs(3).filter(k=>k!=="split"));
+ S.mode="boss";S.voidEnd=now+VOID_SEC*1000;S.hp=stats().hp;S.mp=maxMp();
+ log("【虚空裂隙】守卫自裂缝中踏出，60 秒内打穿它必得专属灵器。","boss");
+ notice("虚空裂隙开启：60 秒限时，必掉专属灵器。","warn");
+ goPanel("0");renderMon();render();save();
+}
 function spawnMijing(layer,chain){
  const cfg=MIJING[layer-1];
  if(!cfg){notice("秘境没有这一层。","warn");return;}
@@ -1603,12 +1633,22 @@ function winMonster(){
   notice("心魔已斩（"+S.xmWin+"/5 重），永久全属性 +"+xmPct()+"%","gold");
   render();save();spawn();return;
  }
+ if(cur.voudn){
+  S.mode="normal";cur=null;S.voidEnd=0;S.hp=stats().hp;S.mp=maxMp();
+  const sp=Math.round((2600+S.lv*14)*CONFIG.spiritRate);
+  S.spirit=(S.spirit||0)+sp;runStat.sp+=sp;
+  S.crystal+=10;S.mat.enh+=6;S.ticket=(S.ticket||0)+1;
+  log("★ 虚空裂隙打穿：灵晶 +"+nf(sp)+"、水晶 ×10、强化石 ×6、保底券 ×1，专属灵器机缘必得。","gold");
+  grantGrowArt();
+  notice("虚空裂隙通过：必掉专属灵器。","gold");
+  render();save();spawn();return;
+ }
  if(cur.mijing){
   const cfg=MIJING[(cur.mijing||1)-1]||MIJING[0];
   const layer=cur.mijing||1;
   S.mode="normal";cur=null;S.hp=stats().hp;S.mp=maxMp();
   const sp=Math.round((60+Math.floor((S.lv-200)*1.6))*cfg.sp*CONFIG.spiritRate);
-  S.spirit=(S.spirit||0)+sp;
+  S.spirit=(S.spirit||0)+sp;runStat.sp+=sp;
   S.crystal+=4*layer;S.mat.enh+=2*layer;
   log("【秘境】"+cfg.n+" 清空：灵晶 +"+nf(sp)+"、水晶 ×"+(4*layer)+"、强化石 ×"+(2*layer)+"。","gold");
   if(Math.random()<cfg.art){grantGrowArt();}
@@ -1630,6 +1670,7 @@ function winMonster(){
  const boss=cur.boss,name=cur.name;
  const decay=expDecay(cur.lv);
  const gain=Math.round(cur.exp*decay*(worldEvNow()==="tide"?1.5:1));
+ runStat.exp+=gain;
  S.gold+=cur.gold;S.exp+=gain;S.kills++;
  rateAcc.g+=cur.gold;rateAcc.e+=gain;rateAcc.ms+=CONFIG.tickMs;
  dailyAdd("kills",1);dailyAdd("gold",cur.gold);
@@ -1649,7 +1690,7 @@ function winMonster(){
  if(S.realm===2){
   const nsp=cur.nemesis?(2+Math.min(3,cur.nemTier||0)):1;
   const sp=Math.max(0,Math.round((5+Math.floor(Math.max(0,cur.lv-200)/8))*(cur.elite?2:1)*(worldEvNow()==="horde"?1.5:1)*TIANFA[mapTier()].drop*CONFIG.spiritRate*nsp));
-  S.spirit+=sp;
+  S.spirit+=sp;runStat.sp+=sp;
   if(boss){
   const rich=!!(cur.affs&&cur.affs.length);
   const nt=cur.nemesis?(cur.nemTier||0):0;
@@ -1727,11 +1768,22 @@ function die(){
   notice("破碎虚空失败，30 秒后复活。天道仍非绝境——把灵器与道行再往上堆，它就会倒。","warn");
   render();save();return;
  }
+ if(cur&&cur.mijing){
+  const f=cur.mijing;
+  S.mjChain=0;S.trialReady=Date.now()+120000;
+  log("你倒在秘境第 "+f+" 层，链式挑战中断，冷却重新计算。","warn");
+  notice("秘境挑战失败：停在"+MIJING[f-1].n+"，120 秒后可再来。","warn");
+ }
  log("你倒下了…… 在安全区醒来，损失金币 "+nf(lose)+"。","warn");
  S.hp=stats().hp;S.mp=maxMp();S.mode="normal";cur=null;spawn();
 }
 function tick(){
  tickWorldEvent();
+ if(cur&&cur.voudn&&S.voidEnd&&Date.now()>=S.voidEnd){
+  log("【虚空裂隙】裂隙合拢，守卫退回虚空——这次失败了。","warn");
+  notice("虚空裂隙超时，60 秒内没打穿。","warn");
+  S.voidEnd=0;S.mode="normal";cur=null;spawn();render();
+ }
  if(cur&&cur.tian&&S.tgEnd&&Date.now()>=S.tgEnd){
   log("【天关】时限已到，今日之敌遁入虚空——这次机会作废。","warn");
   notice("天关失败：30 秒未清杀。","warn");
@@ -1777,6 +1829,7 @@ function canAutoSell(it){
  return true;
 }
 function addItem(it){
+ runStat.drop++;
  S.bag.push(it);dailyAdd("drops",1);
  log("◆ 掉落 "+fullName(it)+"  "+itemSub(it),"drop");
  autoEquip(it);
@@ -2405,6 +2458,11 @@ function renderSkillBtns(){
   box.appendChild(d);
  });
 }
+let runStat={t0:Date.now(),sp:0,exp:0,drop:0};
+function runLineText(){
+ const m=Math.max(1,Math.round((Date.now()-runStat.t0)/60000));
+ return "本次挂机 "+m+" 分钟 · 灵晶 +"+nf(runStat.sp)+" · 经验 +"+nf(runStat.exp)+" · 出货 "+runStat.drop+" 件";
+}
 function renderFast(){
  const st=stats();if(S.hp>st.hp)S.hp=st.hp;
  $("#pHp").style.width=Math.max(0,S.hp/st.hp*100)+"%";
@@ -2419,8 +2477,10 @@ function renderFast(){
  const tLeft=Math.max(0,Math.ceil(((S.trialReady||0)-Date.now())/1000));
  const bt=$("#btnTrial");
  if(bt)bt.textContent=S.realm===2?(tLeft>0?"历练 "+tLeft+"s":"历练副本（逐层）"):(tLeft>0?"历练 "+tLeft+"s":"历练副本");
+ const rl=$("#runLine");if(rl)rl.textContent=runLineText();
 }
 function render(refreshPanes){
+ const rl0=$("#runLine");if(rl0)rl0.textContent=runLineText();
  if(refreshPanes===undefined)refreshPanes=true;
  const st=stats();
  if(S.hp>st.hp)S.hp=st.hp;
@@ -2459,6 +2519,14 @@ function render(refreshPanes){
   if(tgB){const okTg=S.realm===2&&S.lv>=300&&left0>0;
    tgB.className="mini "+(okTg?"r":"off");
    tgB.textContent=left0<=0?"天关 0/3":("天关 "+left0+"/3");}
+  const vdB=$("#btnVoid");
+  if(vdB){
+   const cdV=Math.max(0,Math.ceil(((S.voidReady||0)-Date.now())/1000));
+   const okV=voidReady(),showV=S.realm===2&&S.lv>=VOID_LV;
+   vdB.style.display=showV?"":"none";
+   vdB.className="mini "+(okV?"p":"off");
+   vdB.textContent=cdV>0?("裂隙 "+Math.ceil(cdV/60)+"m"):"虚空裂隙";
+  }
   const xmB=$("#btnXm"),nm0=Math.min(5,S.xmWin||0);
   if(xmB){const okXm=S.realm===2&&S.lv>=xmNextLv()&&nm0<5;
    xmB.className="mini "+(okXm?"r":"off");
@@ -2542,7 +2610,9 @@ function renderBag(){
   const acts=document.createElement("div");acts.className="acts";
   const b1=document.createElement("div");b1.className="mini "+(diff>0||!own?"b":"");b1.textContent=diff>0||!own?"穿戴":"仍要穿";b1.onclick=()=>wear(it.id);
   const b2=document.createElement("div");b2.className="mini g";b2.textContent="回收 +"+nf(Math.round(score(it)*1.25));b2.onclick=()=>sell(it.id);
-  acts.appendChild(b1);acts.appendChild(b2);c.appendChild(acts);box.appendChild(c);
+  const b3=document.createElement("div");b3.className="mini "+(it.lock?"y":"b");b3.textContent=it.lock?"已锁":"锁定";
+  b3.onclick=()=>{it.lock=!it.lock;log(it.lock?"已锁定「"+fullName(it)+"」，自动回收跳过它。":"已解锁「"+fullName(it)+"」。",it.lock?"gold":"sys");renderBag();save();};
+  acts.appendChild(b1);acts.appendChild(b2);acts.appendChild(b3);c.appendChild(acts);box.appendChild(c);
  }
  if(list.length>bagView.shown){
   const more=document.createElement("div");more.className="btn gold";more.style.marginTop="4px";
@@ -3424,6 +3494,7 @@ function bind(){
  document.querySelectorAll("#logChips .mini").forEach(b=>{
   b.onclick=()=>{logMode=Number(b.dataset.lm||0);
    document.querySelectorAll("#logChips .mini").forEach(x=>x.className="mini "+(x===b?"y":"b"));
+   renderLog();
    if(logMode===0)toast("已显示全部日志。","good");
    else if(logMode===1)toast("精简模式：只看系统与掉落。","good");
    else toast("只看出货：掉落与灵晶。","good");};
@@ -3432,6 +3503,7 @@ function bind(){
  [0,1,2].forEach(i=>{const b=$("#btnTf"+i);if(b)b.onclick=()=>setMapTier(i);});
  $("#btnTg").onclick=()=>spawnTianGuan();
  $("#btnXm").onclick=()=>spawnMirror();
+ const vb=$("#btnVoid");if(vb)vb.onclick=()=>spawnVoid();
  document.querySelectorAll("#tfPick .mini").forEach(b=>{b.onclick=()=>{setMapTier(Number(b.dataset.tf||0));renderSet();};});
  $("#btnTowerClose").onclick=()=>{$("#towerPanel").style.display="none";};
  $("#btnBest").onclick=bestEquip;
@@ -3480,7 +3552,7 @@ function idbBootLoad(){
 /* ============ 启动 ============ */
 function boot(){
  loadCfg();bind();
- const ok=load();
+ const ok=load();runStat={t0:Date.now(),sp:0,exp:0,drop:0};
  if(ok){
   log("读取存档：Lv"+S.lv+(S.prestige?" "+S.prestige+"转":"")+"，金币 "+nf(S.gold)+"，水晶 "+nf(S.crystal)+"。","gold");
   offlineSettle();
