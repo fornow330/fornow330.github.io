@@ -132,16 +132,14 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
       <div class="btn" id="btnTower">试炼塔</div>
     </div>
     <div class="quick">
-      <div class="mini b" id="btnTf0">常态</div>
-      <div class="mini b" id="btnTf1">凶险</div>
-      <div class="mini b" id="btnTf2">绝境</div>
       <div class="mini r" id="btnTg">天关</div>
       <div class="mini r" id="btnXm">心魔</div>
     </div>
     <div class="quick">
-      <div class="mini g" id="btnMj1">秘境·外围</div>
-      <div class="mini g" id="btnMj2">秘境·深处</div>
-      <div class="mini g" id="btnMj3">秘境·绝地</div>
+      <div class="mini g" id="btnMj1">秘境·一层</div>
+      <div class="mini g" id="btnMj2">秘境·二层</div>
+      <div class="mini g" id="btnMj3">秘境·三层</div>
+      <div class="mini g" id="btnMj4">秘境·四层</div>
     </div>
     <div id="worldProg" class="sub" style="padding:0 4px 4px;color:#8a877e;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     <div id="battleHint" class="sub" style="padding:2px 4px 4px;color:#8a877e;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
@@ -208,6 +206,13 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
   </div>
 
   <div class="pane" id="pane5">
+    <div class="sec-t">天罚难度 <em id="tfState">常态</em></div>
+    <div class="quick" id="tfPick">
+      <div class="mini b" data-tf="0">常态</div>
+      <div class="mini b" data-tf="1">凶险</div>
+      <div class="mini b" data-tf="2">绝境</div>
+    </div>
+    <div class="sub" style="padding:0 2px 8px;color:#8a877e;font-size:10.5px">强度与掉落随档位变化：凶险 ×1.4/×1.8，绝境 ×1.9/×2.5。改完立刻生效。</div>
     <div id="cfgWrap" style="display:none">
       <div class="sec-t">调参面板 <em>改完点保存，立即生效</em></div>
       <div id="cfgList"></div>
@@ -714,14 +719,19 @@ function spawnMirror(){
 const MIJING=[
  {n:"一层·外围",lv:200,mul:1.0,sp:1.0,art:0.06},
  {n:"二层·深处",lv:320,mul:1.7,sp:2.2,art:0.14},
- {n:"三层·绝地",lv:500,mul:2.6,sp:4.0,art:0.26}
+ {n:"三层·绝地",lv:500,mul:2.6,sp:4.0,art:0.26},
+ {n:"四层·幽冥",lv:700,mul:3.8,sp:6.0,art:0.35}
 ];
-function spawnMijing(layer){
+function spawnMijing(layer,chain){
  const cfg=MIJING[layer-1];
+ if(!cfg){notice("秘境没有这一层。","warn");return;}
  if(S.realm!==2){notice("秘境深处只在大世界开放。","warn");return;}
- if(S.lv<cfg.lv){notice("需 Lv"+cfg.lv+" 才能进"+cfg.n+"。","warn");return;}
- if(Date.now()<(S.trialReady||0)){notice("历练冷却中，还要 "+Math.ceil((S.trialReady-Date.now())/1000)+" 秒。","warn");return;}
- S.trialReady=Date.now()+120000;
+ if(S.lv<cfg.lv){notice("需 Lv"+cfg.lv+" 才能进"+cfg.n+"。","warn");S.mjChain=0;if(chain)spawn();return;}
+ if(!chain){
+  if(Date.now()<(S.trialReady||0)){notice("历练冷却中，还要 "+Math.ceil((S.trialReady-Date.now())/1000)+" 秒。","warn");return;}
+  S.trialReady=Date.now()+120000;
+ }
+ S.mjChain=layer;
  const m=curMap();
  // 秘境守卫：等级与人相同，强度 = 外界同等级 ×1.5；越深层多一重词缀
  const p=monPack(S.lv,1.0,m);
@@ -1609,7 +1619,19 @@ function winMonster(){
   log("【秘境】"+cfg.n+" 清空：灵晶 +"+nf(sp)+"、水晶 ×"+(4*layer)+"、强化石 ×"+(2*layer)+"。","gold");
   if(Math.random()<cfg.art){grantGrowArt();}
   else notice("秘境"+cfg.n+" 通过：灵晶 +"+nf(sp),"gold");
-  render();save();spawn();return;
+  S.mjChain=layer;
+  render();save();
+  const nxt=MIJING[layer];
+  if(nxt&&S.lv>=nxt.lv){
+   S.mjChain=layer+1;
+   setTimeout(()=>spawnMijing(layer+1,true),900);
+  }else{
+   S.mjChain=0;
+   if(nxt)notice("下一层「"+nxt.n+"」需 Lv"+nxt.lv+"，本次秘境结束。","warn");
+   else notice("四层秘境已全部清空，本次结束。","gold");
+   spawn();render();
+  }
+  return;
  }
  const boss=cur.boss,name=cur.name;
  const decay=expDecay(cur.lv);
@@ -2250,17 +2272,10 @@ function pointToGold(){
 }
 function doTrial(layer){
  layer=Number(layer)||1;
- if(layer>1){spawnMijing(layer);return;}
+ if(S.realm===2){spawnMijing(layer,false);return;}
  if(Date.now()<(S.trialReady||0)){notice("历练冷却中，还要 "+Math.ceil((S.trialReady-Date.now())/1000)+" 秒。","warn");return;}
  S.trialReady=Date.now()+120000;
- if(S.realm===2){
-  const sp=Math.max(0,Math.round((40+Math.floor((S.lv-200)*1.2))*CONFIG.spiritRate));
-  S.spirit+=sp;
-  questAdd("trial",1);
- if(Math.random()<0.06){grantGrowArt();render();save();return;}
-  notice("大世界历练完成：灵晶 +"+nf(sp)+"。（秘境深处偶有专属灵器）","gold");
-  render();save();return;
- }
+
  const gain=Math.round(need(S.lv)*0.25*(isDouble()?2:1));
  S.exp+=gain;S.mat.enh+=3;S.mat.stone+=1;S.crystal+=5;
  if(Math.random()<0.5)S.mat.star+=1;
@@ -2448,11 +2463,12 @@ function render(refreshPanes){
   if(xmB){const okXm=S.realm===2&&S.lv>=xmNextLv()&&nm0<5;
    xmB.className="mini "+(okXm?"r":"off");
    xmB.textContent="心魔 "+nm0+"/5";}
-  [1,2,3].forEach(i=>{const b=$("#btnMj"+i);if(!b)return;const c=MIJING[i-1];
+  [1,2,3,4].forEach(i=>{const b=$("#btnMj"+i);if(!b)return;const c=MIJING[i-1];
+   if(!c)return;
    const cdL=Math.max(0,Math.ceil(((S.trialReady||0)-Date.now())/1000));
    const okMj=S.realm===2&&S.lv>=c.lv&&cdL<=0;
    b.className="mini "+(okMj?"g":"off");
-   b.textContent="秘境·"+c.n+(cdL>0?" "+cdL+"s":(S.lv<c.lv?"（Lv"+c.lv+"）":""));});
+   b.textContent="秘境"+i+"层"+(cdL>0?" "+cdL+"s":(S.lv<c.lv?" Lv"+c.lv:""));});
   const showWorld=(S.realm===2);
   ["btnTg","btnXm"].forEach(id=>{const el=$("#"+id);if(el)el.style.display=(showWorld?"":"none");});
   const bh=$("#battleHint");
@@ -3370,6 +3386,9 @@ function renderRec(){
  b.onclick=()=>{S.rec.keepRare=!S.rec.keepRare;renderRec();};acts.appendChild(b);c2.appendChild(acts);box.appendChild(c2);
 }
 function renderSet(){
+ const tf=mapTier();
+ document.querySelectorAll("#tfPick .mini").forEach(b=>b.className="mini "+(Number(b.dataset.tf)===tf?"y":"b"));
+ const ts=$("#tfState");if(ts)ts.textContent=TIANFA[tf].n+" · 强度×"+TIANFA[tf].mul+" / 掉落×"+TIANFA[tf].drop;
  const box=$("#diagBox");
  if(box)box.innerHTML='<div class="card">'+diagHtml()+'<div class="sub" style="margin-top:6px;color:#8a877e">基于当前地图与天罚档位实时计算；经验速率取最近 30 秒实测，刚进游戏先挂一分钟再看。</div></div>';
  const un=isUnlocked();
@@ -3410,7 +3429,8 @@ function bind(){
  [0,1,2].forEach(i=>{const b=$("#btnTf"+i);if(b)b.onclick=()=>setMapTier(i);});
  $("#btnTg").onclick=()=>spawnTianGuan();
  $("#btnXm").onclick=()=>spawnMirror();
- [1,2,3].forEach(i=>{const b=$("#btnMj"+i);if(b)b.onclick=()=>doTrial(i);});
+ [1,2,3,4].forEach(i=>{const b=$("#btnMj"+i);if(b)b.onclick=()=>doTrial(i);});
+ document.querySelectorAll("#tfPick .mini").forEach(b=>{b.onclick=()=>{setMapTier(Number(b.dataset.tf||0));renderSet();};});
  $("#btnTowerClose").onclick=()=>{$("#towerPanel").style.display="none";};
  $("#btnBest").onclick=bestEquip;
  $("#btnSellAll").onclick=sellAll;
