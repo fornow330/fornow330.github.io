@@ -135,12 +135,6 @@ textarea{resize:vertical;min-height:58px;font-size:11px;line-height:1.5;font-fam
       <div class="mini r" id="btnTg">天关</div>
       <div class="mini r" id="btnXm">心魔</div>
     </div>
-    <div class="quick">
-      <div class="mini g" id="btnMj1">秘境·一层</div>
-      <div class="mini g" id="btnMj2">秘境·二层</div>
-      <div class="mini g" id="btnMj3">秘境·三层</div>
-      <div class="mini g" id="btnMj4">秘境·四层</div>
-    </div>
     <div id="worldProg" class="sub" style="padding:0 4px 4px;color:#8a877e;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     <div id="battleHint" class="sub" style="padding:2px 4px 4px;color:#8a877e;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     <div id="evLine" class="sub" style="padding:2px 4px 6px;color:#8a877e"></div>
@@ -2272,7 +2266,10 @@ function pointToGold(){
 }
 function doTrial(layer){
  layer=Number(layer)||1;
- if(S.realm===2){spawnMijing(layer,false);return;}
+ if(S.realm===2){
+  if(S.mjChain&&cur&&cur.mijing){notice("已经在秘境中，先把这一层打完。","warn");return;}
+  spawnMijing(1,false);return;
+ }
  if(Date.now()<(S.trialReady||0)){notice("历练冷却中，还要 "+Math.ceil((S.trialReady-Date.now())/1000)+" 秒。","warn");return;}
  S.trialReady=Date.now()+120000;
 
@@ -2419,6 +2416,9 @@ function renderFast(){
  renderMon();
  const bLeft=Math.max(0,Math.ceil(((S.bossReady||0)-Date.now())/1000));
  const bb=$("#btnBoss");if(bb)bb.textContent=bLeft>0?"BOSS 冷却 "+bLeft+"s":"挑战 BOSS";
+ const tLeft=Math.max(0,Math.ceil(((S.trialReady||0)-Date.now())/1000));
+ const bt=$("#btnTrial");
+ if(bt)bt.textContent=S.realm===2?(tLeft>0?"历练 "+tLeft+"s":"历练副本（逐层）"):(tLeft>0?"历练 "+tLeft+"s":"历练副本");
 }
 function render(refreshPanes){
  if(refreshPanes===undefined)refreshPanes=true;
@@ -2463,12 +2463,15 @@ function render(refreshPanes){
   if(xmB){const okXm=S.realm===2&&S.lv>=xmNextLv()&&nm0<5;
    xmB.className="mini "+(okXm?"r":"off");
    xmB.textContent="心魔 "+nm0+"/5";}
-  [1,2,3,4].forEach(i=>{const b=$("#btnMj"+i);if(!b)return;const c=MIJING[i-1];
-   if(!c)return;
+  (function(){
    const cdL=Math.max(0,Math.ceil(((S.trialReady||0)-Date.now())/1000));
-   const okMj=S.realm===2&&S.lv>=c.lv&&cdL<=0;
-   b.className="mini "+(okMj?"g":"off");
-   b.textContent="秘境"+i+"层"+(cdL>0?" "+cdL+"s":(S.lv<c.lv?" Lv"+c.lv:""));});
+   const bt=$("#btnTrial");if(!bt)return;
+   if(S.realm===2){
+    const okT=S.lv>=MIJING[0].lv&&cdL<=0;
+    bt.textContent=cdL>0?("历练 "+cdL+"s"):"历练副本（逐层）";
+    bt.className="btn"+(okT?"":" off");
+   }
+  })();
   const showWorld=(S.realm===2);
   ["btnTg","btnXm"].forEach(id=>{const el=$("#"+id);if(el)el.style.display=(showWorld?"":"none");});
   const bh=$("#battleHint");
@@ -3429,7 +3432,6 @@ function bind(){
  [0,1,2].forEach(i=>{const b=$("#btnTf"+i);if(b)b.onclick=()=>setMapTier(i);});
  $("#btnTg").onclick=()=>spawnTianGuan();
  $("#btnXm").onclick=()=>spawnMirror();
- [1,2,3,4].forEach(i=>{const b=$("#btnMj"+i);if(b)b.onclick=()=>doTrial(i);});
  document.querySelectorAll("#tfPick .mini").forEach(b=>{b.onclick=()=>{setMapTier(Number(b.dataset.tf||0));renderSet();};});
  $("#btnTowerClose").onclick=()=>{$("#towerPanel").style.display="none";};
  $("#btnBest").onclick=bestEquip;
