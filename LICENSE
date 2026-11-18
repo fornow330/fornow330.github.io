@@ -10,6 +10,7 @@ Copyright (C) 2026 fornow330
 | vitrine/ | Vitrine 收藏管理应用 | MIT，全文见 vitrine/LICENSE |
 | tidy-up/ | 三连收纳小游戏 | MIT（正文见下） |
 | tycoon/ | 二合甜品小店小游戏 | MIT（正文见下） |
+| cutting/ | 怪潮幸存者小游戏 | MIT（正文见下） |
 | .github/ | 站点同步工作流配置 | 随本仓库，MIT（正文见下） |
 
 说明：
@@ -18,6 +19,8 @@ Copyright (C) 2026 fornow330
 2. 未单独声明许可的子目录，按本文件的 MIT 条款授权。
 3. `legendword/` 为 GPL-3.0 强著佐权许可，任何分发或修改必须遵守 legendword/LICENSE 中的完整条款，不得以本文件的 MIT 条款替代。
 4. 页面与游戏内的名称、图标、文案等品牌素材版权归 fornow330 所有，MIT 授权不包含商标性使用。
+5. 各作品的图形与音效均为作者自制（内联 SVG/CSS、自绘 PNG、自制 WAV），未使用外部图库、字体或音频；外部仅使用 MIT / Apache-2.0 的运行时库，清单见各仓库 `THIRD-PARTY.md`、`CREDITS.md`。
+6. 配套安卓壳 `fornowAI` 的应用图标为参考图，仅作个人非商用使用，不在本仓库内，也不随本许可授权。
 
 ---
 
