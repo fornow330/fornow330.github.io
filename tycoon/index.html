@@ -7,33 +7,39 @@
 </head><body><div id="b">甜梦小铺 · 载入中</div>
 <script>
 (function(){
-var F=["70945b5230.js", "344f5a3b79.js", "df71e319b1.js", "a76220af7b.js"],N=4;
-var BUILD="a4230853f1a8d881",CK="tm_h5_"+BUILD;
-function show(h){
-  var b=document.getElementById("b"); if(b) b.style.display="none";
-  try{sessionStorage.removeItem("tm_rl_"+BUILD);}catch(e){}
-  var f=document.createElement("iframe");
-  f.style.cssText="position:fixed;inset:0;width:100%;height:100%;border:0;background:#FBF0E8";
-  f.srcdoc=h;
-  document.body.appendChild(f);
-  document.title="甜梦小铺";
-}
-function fail(){
+var F=["1818996741.js", "259cc2fa8d.js", "f934e0a426.js", "73960c9bc8.js"],N=4;
+var BUILD="935581702e284a75",CK="tm_h5_"+BUILD;
+function purge(){
   try{
-    if(!sessionStorage.getItem("tm_rl_"+BUILD)){
-      sessionStorage.setItem("tm_rl_"+BUILD,"1");
-      location.reload();
-      return;
+    for(var i=localStorage.length-1;i>=0;i--){
+      var k=localStorage.key(i);
+      if(k && k.indexOf("tm_h5_")===0 && k!==CK) localStorage.removeItem(k);
     }
   }catch(e){}
+}
+function show(h){
+  var b=document.getElementById("b"); if(b) b.style.display="none";
+  document.title="甜梦小铺";
+  /* 顶层文档直接渲染，避免 iframe 的 opaque origin 导致存档不持久 */
+  document.open(); document.write(h); document.close();
+}
+function fail(){
+  /* 用查询参数强制取新 index，绕开旧缓存与已删除的分片 */
+  if(!/[?&]r=/.test(location.search)){
+    location.replace(location.pathname+"?r="+Date.now());
+    return;
+  }
   var b=document.getElementById("b"); if(b) b.textContent="载入失败，请刷新重试";
 }
 var cached=null;
-try{var ch=localStorage.getItem(CK); if(ch && ch.length>10000 && ch.indexOf("<html")>=0) cached=ch;}catch(e){}
-if(cached){show(cached);return;}
+try{
+  var ch=localStorage.getItem(CK);
+  if(ch && ch.length>10000 && ch.indexOf("<html")>=0) cached=ch;
+}catch(e){}
+if(cached){ purge(); show(cached); return; }
 function unpack(){
   var t=(window.__PC||[]).join("");
-  var K="Q3rXu9zyuLQY"+"N/b0vR0DNR1NJXrA"+"4wZIIYsBifbmYGw="+"",V="olXO/JmaPInBDHm7";
+  var K="LjiuV6eSYjKu"+"mxVutNOsk4P2v1iK"+"4JzYN0Yr9iYPTu0="+"",V="hsB1EcAMJhOCYWAc";
   var b=atob(t),c=new Uint8Array(b.length);
   for(var j=0;j<b.length;j++)c[j]=b.charCodeAt(j);
   var v=new Uint8Array(atob(V).split("").map(function(x){return x.charCodeAt(0);}));
@@ -47,11 +53,14 @@ function unpack(){
     return new Response(ds.readable).arrayBuffer();
   }).then(function(buf){
     var h=new TextDecoder().decode(new Uint8Array(buf));
-    show(h);
     try{
-      for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i); if(k && k.indexOf("tm_h5_")===0 && k!==CK) localStorage.removeItem(k);}
+      purge();
       localStorage.setItem(CK,h);
-    }catch(e){}
+    }catch(e){
+      purge();
+      try{ localStorage.setItem(CK,h); }catch(e3){}
+    }
+    show(h);
   });
 }
 var loaded=0;
