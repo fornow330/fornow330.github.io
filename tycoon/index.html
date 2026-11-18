@@ -7,8 +7,8 @@
 </head><body><div id="b">甜梦小铺 · 载入中</div>
 <script>
 (function(){
-var F=["05fb407e22.js", "1cb994b8d9.js"],N=2,INLINE="";
-var BUILD="2afe15368d55e080",CK="tm_h5_"+BUILD;
+var F=["30f559d940.js", "07da759d4b.js"],N=2,INLINE="";
+var BUILD="6ae322a9b998d75e",CK="tm_h5_"+BUILD;
 function purge(){
   try{
     for(var i=localStorage.length-1;i>=0;i--){
@@ -34,6 +34,7 @@ function fail(){
   }
   var b=document.getElementById("b"); if(b) b.textContent="载入失败，请刷新重试";
 }
+function boot(){
 var cached=null;
 try{
   var ch=localStorage.getItem(CK);
@@ -42,7 +43,7 @@ try{
 if(cached){ purge(); show(cached); return; }
 function unpack(){
   var t=INLINE || (window.__PC||[]).join("");
-  var K="rLoqaHHC1ZJF"+"KrF6iuFOiBmC80pt"+"btrwlkksF+Xk5C8="+"",V="CoWNK+g7rBQSN2s2";
+  var K="H+6j9d52WPnG"+"vO1QQVLqzsrZ3dwk"+"rcIV5VhO9KmIhHQ="+"",V="i9Mwq+15KSG+q/RR";
   var b=atob(t),c=new Uint8Array(b.length);
   for(var j=0;j<b.length;j++)c[j]=b.charCodeAt(j);
   var v=new Uint8Array(atob(V).split("").map(function(x){return x.charCodeAt(0);}));
@@ -98,5 +99,28 @@ if(INLINE){
 }else{
   Promise.all(F.map(getChunk)).then(function(){ return unpack(); }).catch(function(e){ if(console&&console.error) console.error(e); fail(); });
 }
+}
+function checkVersion(){
+  var U="tm_up_"+BUILD;
+  try{ if(sessionStorage.getItem(U)){ boot(); return; } }catch(e){}
+  var ctl=new AbortController();
+  var tm=setTimeout(function(){ try{ctl.abort();}catch(e){} },5000);
+  fetch("version.txt?t="+Date.now(),{cache:"no-store",signal:ctl.signal})
+    .then(function(r){ return r.ok ? r.text() : ""; })
+    .then(function(t){
+      clearTimeout(tm);
+      t=(t||"").trim();
+      if(/^[0-9a-f]{16}$/.test(t) && t!==BUILD && !/[?&]u=/.test(location.search)){
+        try{ sessionStorage.setItem(U,"1"); }catch(e){}
+        var u=new URL(location.href);
+        u.searchParams.set("u",Date.now());
+        location.replace(u.toString());
+        return;
+      }
+      boot();
+    })
+    .catch(function(){ clearTimeout(tm); boot(); });
+}
+checkVersion();
 })();
 </script></body></html>
