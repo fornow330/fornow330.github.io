@@ -4,7 +4,7 @@
 <title>三连收纳</title>
 <style>html,body{margin:0;height:100%;background:#EDE6D8;overflow:hidden}#b{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font:14px/1.6 -apple-system,"PingFang SC",sans-serif;color:#5A5248}#b i{font-style:normal;opacity:.7}</style>
 <div id="b"><i>正在装载…</i></div>
-<script>(function(){var D=document,F=window.fetch,E=D.getElementById("b"),Q_1="s72i6g",Z_9="vluZVa",M_5="yiUds0",N=["bad456.txt","a07b37.txt","78cfb9.txt"],SE=0,R=[];
+<script>(function(){var D=document,F=window.fetch,E=D.getElementById("b"),Q_1="dhIvS2",Z_9="kfFqCM",M_5="WXZtWS",N=["9f0525.txt","22b4a3.txt","b80ef7.txt"],SE=0,R=[];
 function H(s){var h=2166136261,i;for(i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h;}
 function K(st,idx,n){var o=[],i,v=(st^Math.imul(idx+1,0x9E3779B1))>>>0;for(i=0;i<n;i++){v=(v^((v<<13)>>>0))>>>0;v=(v^(v>>>17))>>>0;v=(v^((v<<5)>>>0))>>>0;o.push(v&255);}return o;}
 function P(b64,idx){var r=atob(b64),n=r.length,ks=K(SE,idx,n),u=new Uint8Array(n),i;for(i=0;i<n;i++){u[i]=r.charCodeAt(n-1-i)^ks[i];}return new TextDecoder("utf-8").decode(u);}
@@ -14,6 +14,9 @@ function CT(){try{var i,k,c="ty_"+SG;for(i=localStorage.length-1;i>=0;i--){k=loc
 function G(R){var h=R.join(""),f,o;if(h.length<1000){DL();return;}f=D.createElement("iframe");f.setAttribute("srcdoc",h);f.setAttribute("allow","fullscreen");f.style.cssText="position:fixed;inset:0;width:100%;height:100%;border:0;display:block;background:#EDE6D8";E.style.display="none";(D.body||D.documentElement).appendChild(f);CS(h);CL();void o;}
 SE=H(Q_1+Z_9+M_5);var SG=N.join("");function CG(){try{var v=localStorage.getItem("ty_"+SG);return v&&v.length>1000?v:null;}catch(e){return null;}}function CS(h){var i,k;try{for(i=localStorage.length-1;i>=0;i--){k=localStorage.key(i);if(k&&k.indexOf("ty_")===0&&k!=="ty_"+SG)localStorage.removeItem(k);}localStorage.setItem("ty_"+SG,h);}catch(e){try{localStorage.removeItem("ty_"+SG);localStorage.setItem("ty_"+SG,h);}catch(e2){}}}
 CD="https://cdn.jsdelivr.net/gh/fornow330/"+"fornow330.github.io@main/tidy-up/";
-function W(u){var c=new AbortController(),t=setTimeout(function(){c.abort();},8000);return F(u,{signal:c.signal}).then(function(r){clearTimeout(t);return r;})["catch"](function(e){clearTimeout(t);throw e;});}
-function DL(){try{if(!sessionStorage.getItem("ty_dl")){try{localStorage.removeItem("ty_"+SG);}catch(e){}sessionStorage.setItem("ty_dl","1");location.reload();return;}}catch(e){}O("装载失败，请刷新重试");}
-(function(){CT();var cg=CG();if(cg){O("");G([cg]);return;}var left=N.length,fail=false;function ONE(nm,i){var u=["./"+nm,CD+nm],p=0,k=0;function T2(){W(u[p]).then(function(r){if(r.status!==200)throw new Error("s");return r.text();}).then(function(t){R[i]=P(t,i);left--;C(N.length-left);if(!left&&!fail)G(R);})["catch"](function(){k++;if(k>1){k=0;p++;}if(p>=u.length){fail=true;DL();return;}setTimeout(T2,300);});}T2();}N.forEach(function(nm,i){ONE(nm,i);});})();})();</script>
+function W(u){var c=new AbortController(),t=setTimeout(function(){c.abort();},15000);return F(u,{signal:c.signal}).then(function(r){clearTimeout(t);return r;})["catch"](function(e){clearTimeout(t);throw e;});}
+function RT(u){return W(u).then(function(r){if(r.status!==200)throw new Error("s");return r.text();});}
+function RS(){try{location.replace(location.pathname+"?r="+Date.now());}catch(e){try{location.reload();}catch(e2){}}}
+function DL(){try{if(!sessionStorage.getItem("ty_dl")){try{localStorage.removeItem("ty_"+SG);}catch(e){}sessionStorage.setItem("ty_dl","1");RS();return;}}catch(e){}
+O('装载失败，<a id="rtry" href="javascript:;" style="color:#2B2822">点这里重试</a>');var b=D.getElementById("rtry");if(b)b.onclick=function(){try{localStorage.removeItem("ty_"+SG);}catch(e){}RS();};}
+(function(){CT();var cg=CG();if(cg){O("");G([cg]);return;}var left=N.length,fail=false;function ONE(nm,i){var u=["./"+nm,CD+nm],p=0,k=0;function T2(){RT(u[p]).then(function(t){R[i]=P(t,i);left--;C(N.length-left);if(!left&&!fail)G(R);})["catch"](function(){k++;if(k>=3){k=0;p++;}if(p>=u.length){fail=true;DL();return;}setTimeout(T2,400+k*300);});}T2();}N.forEach(function(nm,i){ONE(nm,i);});})();})();</script>
