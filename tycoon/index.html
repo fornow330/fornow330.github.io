@@ -7,8 +7,8 @@
 </head><body><div id="b">甜梦小铺 · 载入中</div>
 <script>
 (function(){
-var F=["1818996741.js", "259cc2fa8d.js", "f934e0a426.js", "73960c9bc8.js"],N=4;
-var BUILD="935581702e284a75",CK="tm_h5_"+BUILD;
+var F=["74c55b0ddf.js", "b03b889b64.js", "7e0abb9e24.js", "bd78a838e4.js"],N=4;
+var BUILD="94cef2714c81a0d9",CK="tm_h5_"+BUILD;
 function purge(){
   try{
     for(var i=localStorage.length-1;i>=0;i--){
@@ -24,9 +24,12 @@ function show(h){
   document.open(); document.write(h); document.close();
 }
 function fail(){
-  /* 用查询参数强制取新 index，绕开旧缓存与已删除的分片 */
-  if(!/[?&]r=/.test(location.search)){
-    location.replace(location.pathname+"?r="+Date.now());
+  /* 用查询参数强制取新 index，绕开旧缓存与已删除的分片；只自动重试一次 */
+  if(!/[?&]retry=/.test(location.search)){
+    var u=new URL(location.href);
+    u.searchParams.set("retry","1");
+    u.searchParams.set("t",Date.now());
+    location.replace(u.toString());
     return;
   }
   var b=document.getElementById("b"); if(b) b.textContent="载入失败，请刷新重试";
@@ -39,7 +42,7 @@ try{
 if(cached){ purge(); show(cached); return; }
 function unpack(){
   var t=(window.__PC||[]).join("");
-  var K="LjiuV6eSYjKu"+"mxVutNOsk4P2v1iK"+"4JzYN0Yr9iYPTu0="+"",V="hsB1EcAMJhOCYWAc";
+  var K="mjnSzd5dI/kN"+"WzxpnTMar8ZfRUG+"+"DcuF/yD072S4oPU="+"",V="KiiIVqq6kbslBwhi";
   var b=atob(t),c=new Uint8Array(b.length);
   for(var j=0;j<b.length;j++)c[j]=b.charCodeAt(j);
   var v=new Uint8Array(atob(V).split("").map(function(x){return x.charCodeAt(0);}));
@@ -63,13 +66,33 @@ function unpack(){
     show(h);
   });
 }
-var loaded=0;
-Promise.all(F.map(function(src){
+function getChunk(src){
+  var tries=0;
   return new Promise(function(res,rej){
-    var s=document.createElement("script"); s.src=src;
-    s.onload=function(){loaded++;res();}; s.onerror=rej;
-    document.head.appendChild(s);
+    function go(){
+      var ctl=new AbortController();
+      var timer=setTimeout(function(){ try{ctl.abort();}catch(e){} },15000);
+      fetch(src+"?b="+BUILD+"&n="+(tries+1),{cache:"no-store",signal:ctl.signal})
+        .then(function(r){
+          clearTimeout(timer);
+          if(!r.ok) throw new Error("http "+r.status);
+          return r.text();
+        })
+        .then(function(t){
+          if(!t || t.indexOf("window.__PC")<0) throw new Error("chunk body");
+          (new Function(t))();
+          res();
+        })
+        .catch(function(e){
+          clearTimeout(timer);
+          tries++;
+          if(tries<2) setTimeout(go,600);
+          else rej(e);
+        });
+    }
+    go();
   });
-})).then(function(){ if(loaded!==N) throw new Error("chunk"); return unpack(); }).catch(function(e){ if(console&&console.error) console.error(e); fail(); });
+}
+Promise.all(F.map(getChunk)).then(function(){ return unpack(); }).catch(function(e){ if(console&&console.error) console.error(e); fail(); });
 })();
 </script></body></html>
