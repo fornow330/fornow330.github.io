@@ -1,37 +1,15 @@
 name: sync-source
-
-# 触发：push SRC_URL.txt / 本文件；亦可手动 dispatch（改注释可强制触发）
-# force: v4.18b
+# game.html 由本地 git push 直推；本工作流只刷新 GPL-3.0 许可证。
 on:
-  push:
-    paths:
-      - '.github/workflows/assemble.yml'
-      - 'legendword/SRC_URL.txt'
   workflow_dispatch:
-
 permissions:
   contents: write
-
 jobs:
-  sync:
+  license:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: 拉取最新本体（地址来自 legendword/SRC_URL.txt，带重试与备用线路）
-        run: |
-          SRC=$(head -1 legendword/SRC_URL.txt | tr -d '\r\n ')
-          echo "SRC=$SRC"
-          ok=0
-          for i in 1 2 3 4 5 6 7 8; do
-            if curl -sfL -A 'Mozilla/5.0' --max-time 60 "$SRC" -o legendword/game.html && grep -q '</html>' legendword/game.html; then ok=1; break; fi
-            echo "try $i failed, wait..."; sleep 15
-          done
-          if [ "$ok" != "1" ]; then echo 'source fetch failed after retries'; exit 1; fi
-          wc -c legendword/game.html
-          md5sum legendword/game.html
-
-      - name: 合入 GPL-3.0 官方许可证全文
+      - name: 合入 GPL-3.0
         run: |
           ok=0
           for u in "https://raw.githubusercontent.com/spdx/license-list-data/v3.20/text/GPL-3.0.txt" "https://raw.githubusercontent.com/spdx/license-list-data/main/text/GPL-3.0.txt" "https://www.gnu.org/licenses/gpl-3.0.txt"
@@ -41,10 +19,9 @@ jobs:
           if [ "$ok" != "1" ]; then echo 'license fetch failed'; exit 1; fi
           printf '传奇文字 (Legend Word)\nCopyright (C) 2026 fornow330\n\n' > legendword/LICENSE
           cat /tmp/gpl.txt >> legendword/LICENSE
-
       - name: 提交
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add legendword/game.html legendword/LICENSE
-          if git diff --staged --quiet; then echo "nochange"; else git commit -m "chore: sync source + GPL-3.0"; git push; fi
+          git add legendword/LICENSE
+          if git diff --staged --quiet; then echo "nochange"; else git commit -m "chore: GPL-3.0 licence"; git push; fi
