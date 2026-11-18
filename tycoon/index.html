@@ -7,23 +7,33 @@
 </head><body><div id="b">甜梦小铺 · 载入中</div>
 <script>
 (function(){
-var F=["b7a430e149.js", "3f10f315b3.js", "5575ed2592.js", "e4ab092cb5.js"],N=4;
-var BUILD="1b590d8e60f22329",CK="tm_h5_"+BUILD;
+var F=["a00a00e44d.js", "c598d6eee2.js", "e771513ce1.js", "b0307c4964.js"],N=4;
+var BUILD="9334855adfd0f5d3",CK="tm_h5_"+BUILD;
 function show(h){
   var b=document.getElementById("b"); if(b) b.style.display="none";
+  try{sessionStorage.removeItem("tm_rl_"+BUILD);}catch(e){}
   var f=document.createElement("iframe");
   f.style.cssText="position:fixed;inset:0;width:100%;height:100%;border:0;background:#FBF0E8";
   f.srcdoc=h;
   document.body.appendChild(f);
   document.title="甜梦小铺";
 }
-function fail(){var b=document.getElementById("b"); if(b) b.textContent="载入失败，请刷新重试";}
+function fail(){
+  try{
+    if(!sessionStorage.getItem("tm_rl_"+BUILD)){
+      sessionStorage.setItem("tm_rl_"+BUILD,"1");
+      location.reload();
+      return;
+    }
+  }catch(e){}
+  var b=document.getElementById("b"); if(b) b.textContent="载入失败，请刷新重试";
+}
 var cached=null;
 try{var ch=localStorage.getItem(CK); if(ch && ch.length>10000 && ch.indexOf("<html")>=0) cached=ch;}catch(e){}
 if(cached){show(cached);return;}
 function unpack(){
   var t=(window.__PC||[]).join("");
-  var K="l3IcvOFhkq2K"+"XHLMTzYbGHc58dI9"+"410IxfwcuQlxI5A="+"",V="SkgWndip674wr2+M";
+  var K="vH4JCVAbiUPE"+"4KqIQxt+SztA7AhI"+"WYFka1SWfb7uuJo="+"",V="H2qoqirbQMmorsWz";
   var b=atob(t),c=new Uint8Array(b.length);
   for(var j=0;j<b.length;j++)c[j]=b.charCodeAt(j);
   var v=new Uint8Array(atob(V).split("").map(function(x){return x.charCodeAt(0);}));
