@@ -1,7 +1,7 @@
 name: sync-source
 
 # 触发：push SRC_URL.txt / 本文件；亦可手动 dispatch（改注释可强制触发）
-# force: v4.17
+# force: v4.18b
 on:
   push:
     paths:
@@ -18,14 +18,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 拉取最新本体（地址来自 legendword/SRC_URL.txt）
+      - name: 拉取最新本体（地址来自 legendword/SRC_URL.txt，带重试与备用线路）
         run: |
           SRC=$(head -1 legendword/SRC_URL.txt | tr -d '\r\n ')
           echo "SRC=$SRC"
-          curl -sfL --max-time 90 "$SRC" -o legendword/game.html
+          ok=0
+          for i in 1 2 3 4 5 6 7 8; do
+            if curl -sfL -A 'Mozilla/5.0' --max-time 60 "$SRC" -o legendword/game.html && grep -q '</html>' legendword/game.html; then ok=1; break; fi
+            echo "try $i failed, wait..."; sleep 15
+          done
+          if [ "$ok" != "1" ]; then echo 'source fetch failed after retries'; exit 1; fi
           wc -c legendword/game.html
           md5sum legendword/game.html
-          grep -q '</html>' legendword/game.html
 
       - name: 合入 GPL-3.0 官方许可证全文
         run: |
