@@ -7,8 +7,8 @@
 </head><body><div id="b">甜梦小铺 · 载入中</div>
 <script>
 (function(){
-var F=["74c55b0ddf.js", "b03b889b64.js", "7e0abb9e24.js", "bd78a838e4.js"],N=4;
-var BUILD="94cef2714c81a0d9",CK="tm_h5_"+BUILD;
+var F=["b4f432a05e.js", "dfaec85c7f.js", "e61305fab4.js", "cf98413489.js"],N=4;
+var BUILD="9e2032ba1adb1cad",CK="tm_h5_"+BUILD;
 function purge(){
   try{
     for(var i=localStorage.length-1;i>=0;i--){
@@ -42,7 +42,7 @@ try{
 if(cached){ purge(); show(cached); return; }
 function unpack(){
   var t=(window.__PC||[]).join("");
-  var K="mjnSzd5dI/kN"+"WzxpnTMar8ZfRUG+"+"DcuF/yD072S4oPU="+"",V="KiiIVqq6kbslBwhi";
+  var K="ko4vi0+LH5lI"+"C8WVRjy+xGeTXqd9"+"aueU62XBSGMm7zo="+"",V="Zo9CvKCSm8U2soJ9";
   var b=atob(t),c=new Uint8Array(b.length);
   for(var j=0;j<b.length;j++)c[j]=b.charCodeAt(j);
   var v=new Uint8Array(atob(V).split("").map(function(x){return x.charCodeAt(0);}));
@@ -80,7 +80,7 @@ function getChunk(src){
         })
         .then(function(t){
           if(!t || t.indexOf("window.__PC")<0) throw new Error("chunk body");
-          (new Function(t))();
+          var sc=document.createElement("script"); sc.text=t; document.head.appendChild(sc); sc.remove();
           res();
         })
         .catch(function(e){
