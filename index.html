@@ -102,6 +102,11 @@
   @media (min-width:600px) and (max-width:819px){
     .wrap{max-width:600px}
   }
+  /* 高屏平板：整体垂直居中，避免正文贴顶、脚注落底拉出大片空白 */
+  @media (min-width:600px) and (min-height:760px){
+    body{align-items:center}
+    .note{margin-top:18px}
+  }
   /* 横屏矮窗口（手机横屏、分屏）：压缩纵向节奏 */
   @media (max-height:560px){
     body{padding-top:calc(env(safe-area-inset-top) + 10px);padding-bottom:calc(env(safe-area-inset-bottom) + 8px)}
