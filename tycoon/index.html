@@ -3,12 +3,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>甜梦小铺</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23F6E7DF'/%3E%3Cpath d='M12 40h40v10a4 4 0 0 1-4 4H16a4 4 0 0 1-4-4z' fill='%23C4576B'/%3E%3Cpath d='M16 40c0-8 6-14 16-14s16 6 16 14z' fill='%23F3A6A0'/%3E%3C/svg%3E">
-<style>html,body{margin:0;height:100%;background:#FBF0E8;color:#7A6259;font:14px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif}#b{display:grid;place-items:center;height:100%;letter-spacing:.08em}</style>
-</head><body><div id="b">甜梦小铺 · 载入中</div>
+<style>html,body{margin:0;height:100%;background:#FBF0E8;color:#7A6259;font:14px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif}#b{display:grid;place-items:center;height:100%}#bx{width:min(240px,66vw);text-align:center;letter-spacing:.08em}#bb{height:6px;border-radius:99px;background:#F0DDD2;overflow:hidden;margin:12px 0 8px}#pg{display:block;height:100%;width:0;background:#C4576B;transition:width .25s ease}#st{font-size:11px;color:#A08A80;letter-spacing:.04em}</style>
+</head><body><div id="b"><div id="bx"><div>甜梦小铺 · 载入中</div><div id="bb"><i id="pg"></i></div><div id="st">准备中</div></div></div>
 <script>
 (function(){
-var F=["b6e020fd5e.js", "bcb0e6278b.js"],N=2,INLINE="";
-var BUILD="fa0d3ad6cd7420f6",CK="tm_h5_"+BUILD;
+var F=["a06440f3df.js", "b482f54cfe.js"],N=2,INLINE="";
+var BUILD="c93f8d196e6acf18",CK="tm_h5_"+BUILD;
 function purge(){
   try{
     for(var i=localStorage.length-1;i>=0;i--){
@@ -23,6 +23,11 @@ function show(h){
   /* 顶层文档直接渲染，避免 iframe 的 opaque origin 导致存档不持久 */
   document.open(); document.write(h); document.close();
 }
+var PG=document.getElementById("pg"),ST=document.getElementById("st");
+function paint(p,t){
+  if(PG) PG.style.width=Math.max(0,Math.min(100,p))+"%";
+  if(ST) ST.textContent=t;
+}
 function fail(){
   /* 用查询参数强制取新 index，绕开旧缓存与已删除的分片；只自动重试一次 */
   if(!/[?&]retry=/.test(location.search)){
@@ -32,7 +37,7 @@ function fail(){
     location.replace(u.toString());
     return;
   }
-  var b=document.getElementById("b"); if(b) b.textContent="载入失败，请刷新重试";
+  paint(100,"载入失败，请刷新重试");
 }
 function boot(){
 var cached=null;
@@ -40,10 +45,16 @@ try{
   var ch=localStorage.getItem(CK);
   if(ch && ch.length>10000 && ch.indexOf("<html")>=0) cached=ch;
 }catch(e){}
-if(cached){ purge(); show(cached); return; }
+if(cached){ paint(100,"本地缓存 · 秒开"); purge(); setTimeout(function(){show(cached);},60); return; }
+var loaded=0,total=N||1;
+function bump(){
+  loaded++;
+  paint(Math.min(92,Math.round(loaded/total*84)),"分片 "+loaded+"/"+total);
+}
 function unpack(){
+  paint(94,"解密中");
   var t=INLINE || (window.__PC||[]).join("");
-  var K="msj79GlZroQl"+"jp1CQei5l4hNQIVp"+"ua7LMmYwq3EC0Ow="+"",V="oYWt/2Z/IDFfwBCc";
+  var K="6gdrX5X+//V2"+"dkmE+QYKosbLPU5h"+"DND39mizoaorRd4="+"",V="AE7qPGrB+/0xrBU4";
   var b=atob(t),c=new Uint8Array(b.length);
   for(var j=0;j<b.length;j++)c[j]=b.charCodeAt(j);
   var v=new Uint8Array(atob(V).split("").map(function(x){return x.charCodeAt(0);}));
@@ -64,6 +75,7 @@ function unpack(){
       purge();
       try{ localStorage.setItem(CK,h); }catch(e3){}
     }
+    paint(100,"启动中");
     show(h);
   });
 }
@@ -82,7 +94,7 @@ function getChunk(src){
         .then(function(t){
           if(!t || t.indexOf("window.__PC")<0) throw new Error("chunk body");
           var sc=document.createElement("script"); sc.text=t; document.head.appendChild(sc); sc.remove();
-          res();
+          bump(); res();
         })
         .catch(function(e){
           clearTimeout(timer);
@@ -97,7 +109,9 @@ function getChunk(src){
 if(INLINE){
   unpack().catch(function(e){ if(console&&console.error) console.error(e); fail(); });
 }else{
-  Promise.all(F.map(getChunk)).then(function(){ return unpack(); }).catch(function(e){ if(console&&console.error) console.error(e); fail(); });
+  paint(4,"正在获取分片");
+  setTimeout(function(){ if(!loaded) paint(18,"网络较慢，继续等待…"); },6000);
+  Promise.all(F.map(getChunk)).then(function(){ paint(90,"分片就绪"); return unpack(); }).catch(function(e){ if(console&&console.error) console.error(e); fail(); });
 }
 }
 function checkVersion(){
