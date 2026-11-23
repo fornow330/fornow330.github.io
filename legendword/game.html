@@ -445,11 +445,13 @@ for(const k in S.supreme){const lv=S.supreme[k]||0;atk+=lv*14;hp+=lv*160;def+=lv
 return {atk,hp,def};
 }
 const AFF_DEX_SINGLE=["vamp","thorn","split","rage","shield","haste","regen"];
+let __dexCache=null;
 function affDexKeys(){
+if(__dexCache)return __dexCache;
 const singles=AFF_DEX_SINGLE.slice(),pairs=[];
 for(let i=0;i<AFF_DEX_SINGLE.length;i++)
 for(let j=i+1;j<AFF_DEX_SINGLE.length;j++)pairs.push(AFF_DEX_SINGLE[i]+"+"+AFF_DEX_SINGLE[j]);
-return singles.concat(pairs);
+__dexCache=singles.concat(pairs);return __dexCache;
 }
 function affDexLabel(k){
 if(!k)return "";
@@ -2454,7 +2456,7 @@ if(S.lv<35)return "目标：升到 Lv35 解锁「一方霸主」称号，顺手�
 return "目标：凑齐实力后转生（养成页），转生战力会重置但上限更高";
 }
 if(S.realm===0)return "目标：转生 "+Math.max(0,4-S.prestige)+" 次后渡雷劫，进入天空之城";
-if(S.realm===1)return "目标：Lv210 后挑战界门，打开大世界";
+if(S.realm===1)return "目标：Lv200 后挑战界门，打开大世界";
 if(!S.skyWin){
 if(S.lv<300)return "目标：Lv300 起可开天关（每日 3 次，30 秒限时）";
 if(S.lv<500)return "目标：Lv500 解锁试炼塔，50 层拿保底券与灵晶";
@@ -2686,7 +2688,7 @@ if(S.lv<35)push("等级","Lv"+S.lv+" → 35",S.lv,35,"解锁「一方霸主」�
 else if(S.lv<170)push("等级","Lv"+S.lv+" → 170",S.lv,170,"凡界满级后转生");
 else push("转生","已转 "+S.prestige+" / 4 次",S.prestige||0,4,"转满 4 次渡雷劫");
 }else if(S.realm===1){
-push("等级","Lv"+S.lv+" → 210",S.lv,210,"Lv210 挑战界门进大世界");
+push("等级","Lv"+S.lv+" → 200",S.lv,200,"Lv200 挑战界门进大世界");
 push("天关","已破 "+(S.tgWins||0)+" 次",S.tgWins||0,10,"天关常客成就");
 }else{
 const artN=growArtSlots().length;
@@ -3210,7 +3212,7 @@ c.innerHTML='<div class="row"><span>第一页 · 单条词缀</span><span style=
 box.appendChild(c);
 }
 const KEY="fj_v1",CFG_KEY="fj_cfg_v1",UNLOCK_KEY="fj_unlock_v1";
-const VER="4.25";
+const VER="4.26";
 let saveMeta={last:0,size:0,copies:0,src:"浏览器本地存储"};
 const DEFAULT_CFG=JSON.parse(JSON.stringify(CONFIG));
 function isUnlocked(){try{return localStorage.getItem(UNLOCK_KEY)==="1";}catch(e){return false;}}
