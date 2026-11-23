@@ -320,7 +320,7 @@ try{location.reload();}catch(e){}
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const r1=v=>Math.round(v*10)/10;
-function nf(n){n=Math.floor(n);if(n>=1e8)return (n/1e8).toFixed(2)+"亿";if(n>=1e4)return (n/1e4).toFixed(1)+"万";return String(n);}
+function nf(n){if(n===null||n===undefined||!isFinite(n))return "0";n=Math.floor(n);if(n<0)n=0;if(n>=1e8)return (n/1e8).toFixed(2)+"亿";if(n>=1e4)return (n/1e4).toFixed(1)+"万";return String(n);}
 let logMode=0,logBuf=[];
 function logPass(cls){
 if(logMode===2)return cls==="drop"||cls==="gold"||cls==="boss";
@@ -399,11 +399,6 @@ function itStat(it,k){
 const v=itBase(it,k)+affSum(it,k);
 return (k==="spd"||k==="luck"||k==="amp"||k==="red"||k==="luckRes"||k==="res")?r1(v):Math.round(v);
 }
-function eqSum(k){
-let v=0;for(const s of SLOTS){const it=S.eq[s.k];if(it)v+=itStat(it,k);}
-return (k==="spd"||k==="luck"||k==="amp"||k==="red"||k==="luckRes"||k==="res")?r1(v):v;
-}
-function itemEle(){let v=0;for(const s of SLOTS){const it=S.eq[s.k];if(it)v+=it.ele||0;}return v;}
 function eqAgg(){
 const K=["atkMin","defMin","hp","spd","luck","fix","amp","red","res","ele"];
 const o={};K.forEach(k=>o[k]=0);let baseEle=0;
@@ -721,7 +716,8 @@ res:r1(E.res)
 }
 function worldStats(){
 const w=Math.max(0,S.lv-200),d=S.dp||{},ab=artBonus(),rs=artReso();
-const dkp0=1+(affDexPct()+(S.nemBonus||0)+nemKillPct()+grudgePct())/100;
+const dpPct=affDexPct();
+const dkp0=1+(dpPct+(S.nemBonus||0)+nemKillPct()+grudgePct())/100;
 let atk=200+w*120+(d.atk||0)*140+(ab.atk||0);
 let def=100+w*25+(d.def||0)*90+(ab.def||0);
 let hpm=6000+w*760+(d.hpm||0)*2400+(ab.hp||0);
@@ -737,7 +733,7 @@ hp:Math.round(hpm),spd:6,luck:Math.min(12,Math.round((5+(ab.luck||0))*10)/10),lu
 fix:Math.round(ab.fix||0),amp:r1((ab.amp||0)+rs.amp),red:Math.min(70,r1((ab.red||0)+rs.red+dpMile("def")*2)),ele:0,
 res:Math.min(40,Math.round((ab.res||0)*10)/10),crit,cdmg:rs.cdmg+dpC,
 _split:{baseAtk:200+w*120,dpAtk:(d.atk||0)*140,artAtk:ab.atk||0,artPct:r1(ab.atkp||0),resoAtk:rs.atkP,
-dpMileAtk:dpA,awAtk:Math.round(awAtk),aff:affDexPct(),nem:nemKillPct(),grudge:grudgePct(),xm:xmPct(),title:S.nemBonus||0,
+dpMileAtk:dpA,awAtk:Math.round(awAtk),aff:dpPct,nem:nemKillPct(),grudge:grudgePct(),xm:xmPct(),title:S.nemBonus||0,
 dkp:Math.round(dkp*1000)/1000}};
 }
 function calcPower(st){
@@ -3242,7 +3238,7 @@ c.innerHTML='<div class="row"><span>第一页 · 单条词缀</span><span style=
 box.appendChild(c);
 }
 const KEY="fj_v1",CFG_KEY="fj_cfg_v1",UNLOCK_KEY="fj_unlock_v1";
-const VER="4.29";
+const VER="4.30";
 let saveMeta={last:0,size:0,copies:0,src:"浏览器本地存储"};
 const DEFAULT_CFG=JSON.parse(JSON.stringify(CONFIG));
 function isUnlocked(){try{return localStorage.getItem(UNLOCK_KEY)==="1";}catch(e){return false;}}
@@ -3296,6 +3292,9 @@ rq.onerror=()=>{};
 }
 function idbPut(js){
 idbOpen(db=>{try{const tx=db.transaction("save","readwrite");tx.objectStore("save").put(js,"cur");}catch(e){}});
+}
+function idbClear(){
+idbOpen(db=>{try{const tx=db.transaction("save","readwrite");tx.objectStore("save").delete("cur");}catch(e){}});
 }
 function idbGet(cb){
 idbOpen(db=>{try{const tx=db.transaction("save","readonly");const r=tx.objectStore("save").get("cur");r.onsuccess=()=>cb(r.result||null);r.onerror=()=>cb(null);}catch(e){cb(null);}});
@@ -3606,8 +3605,9 @@ SLOTS.forEach(sl=>{S.eq[sl.k]=mkItem(sl.k,1,0,0);});
 }
 function resetAll(){
 if(!confirm("确定清空存档重来吗？调参解锁状态保留。"))return;
-try{localStorage.removeItem(KEY);}catch(e){}
+try{localStorage.removeItem(KEY);for(let i=0;i<3;i++)localStorage.removeItem(KEY+":s"+i);}catch(e){}
 try{if(window.NativeStore&&NativeStore.clear)NativeStore.clear();}catch(e){}
+try{idbClear();}catch(e){}
 S=blank();cur=null;uid=1;sitReady=0;rateAcc={g:0,e:0,ms:0};logBuf=[];logPending=[];runStat={t0:Date.now(),sp:0,exp:0,drop:0};
 starterKit();
 $("#log").innerHTML="";spawn();renderChips();render();
