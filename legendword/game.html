@@ -2324,7 +2324,10 @@ notice("领取每日任务："+t.rew,"gold");render();save();
 }
 function claimSign(){
 if(S.sign.d===dayKey()){notice("今天已签到。","warn");return;}
-S.sign.days=(S.sign.days||0)+1;S.sign.d=dayKey();
+const prev=S.sign.d,today=dayKey();
+let days=(S.sign.days||0)+1;
+if(prev){const diff=Math.round((new Date(today+"T00:00:00")-new Date(prev+"T00:00:00"))/86400000);if(diff>1)days=1;}
+S.sign.days=days;S.sign.d=today;
 S.crystal+=20;S.mat.enh+=5;
 let extra="";
 if(S.sign.days%7===0){S.crystal+=50;extra="，连签 7 天额外 +50 水晶";}
@@ -3128,7 +3131,7 @@ d.innerHTML='<div class="row"><span style="color:'+(got?"#6b6870":"#d9d6cf")+'">
 '<div class="sub">奖励：'+t.rew+'</div>';
 const acts=D("acts");
 const btn=D("mini "+(got?"off":"y"));
-btn.textContent=got?"已领取":(t.cur()>=t.goal?"领取":"未完成");btn.onclick=()=>claimDaily(t.id);
+btn.textContent=got?"已领取":(v>=t.goal?"领取":"未完成");btn.onclick=()=>claimDaily(t.id);
 acts.appendChild(btn);d.appendChild(acts);dl.appendChild(d);
 });
 const allBtn=D("mini y");allBtn.style.marginTop="6px";
@@ -3207,7 +3210,7 @@ c.innerHTML='<div class="row"><span>第一页 · 单条词缀</span><span style=
 box.appendChild(c);
 }
 const KEY="fj_v1",CFG_KEY="fj_cfg_v1",UNLOCK_KEY="fj_unlock_v1";
-const VER="4.24";
+const VER="4.25";
 let saveMeta={last:0,size:0,copies:0,src:"浏览器本地存储"};
 const DEFAULT_CFG=JSON.parse(JSON.stringify(CONFIG));
 function isUnlocked(){try{return localStorage.getItem(UNLOCK_KEY)==="1";}catch(e){return false;}}
@@ -3558,7 +3561,7 @@ const txt=String($("#saveBox").value||"").trim();
 if(!txt){notice("先把存档粘进框里。","warn");return;}
 try{
 const o=await unpackSave(txt);if(!o||typeof o.lv!=="number")throw 0;
-S=normalizeState(o);
+S=normalizeState(o);rehydrateUid();
 cur=null;S.mode="normal";logBuf=[];renderLog();spawn();renderChips();applyUiMode(S.uiMode);render();save();
 notice("存档导入成功：Lv"+S.lv+"、金币 "+nf(S.gold)+"。","gold");
 }catch(e){
@@ -3572,7 +3575,7 @@ function resetAll(){
 if(!confirm("确定清空存档重来吗？调参解锁状态保留。"))return;
 try{localStorage.removeItem(KEY);}catch(e){}
 try{if(window.NativeStore&&NativeStore.clear)NativeStore.clear();}catch(e){}
-S=blank();cur=null;sitReady=0;rateAcc={g:0,e:0,ms:0};
+S=blank();cur=null;uid=1;sitReady=0;rateAcc={g:0,e:0,ms:0};
 starterKit();
 $("#log").innerHTML="";spawn();renderChips();render();
 log("新的旅程开始了，你套上一身新手白装走出了新手村。","gold");
