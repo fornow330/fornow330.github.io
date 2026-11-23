@@ -139,7 +139,7 @@ prestige:0,prestigeToday:0,attr:{atk:0,def:0,hp:0,pts:0},
 skills:{strike:1,fire:1,shield:1,poison:1},
 shieldEnd:0,fireReady:0,poisonReady:0,shieldReady:0,bossReady:0,trialReady:0,
 mode:"normal",auto:true,dex:{},ach:{},
-daily:{d:"",kills:0,gold:0,drops:0,boss:0,rec:0,merge:0},dailyClaim:{},
+daily:{d:"",kills:0,gold:0,drops:0,boss:0,rec:0,merge:0},dailyClaim:{},dailyChest:0,
 sign:{d:"",days:0},gift:{},rec:{q:[true,true,true,false,false,false],keepRare:true},
 rate:{g:0,e:0},offTs:0,boostEnd:0,
 realm:0,dp:{atk:0,def:0,hpm:0,crit:0,pts:6},spirit:0,sealed:null,ascendLose:0,
@@ -164,7 +164,7 @@ const I18N_DICT={
 "战斗":"Battle","背包":"Bag","角色":"Hero","养成":"Growth","福利":"Perks","设置":"Settings",
 "传奇文字":"Legend Text","传奇文字 ·":"Legend Text ·","新手村":"Novice Village","寻找猎物…":"Searching for prey…",
 "打坐回血":"Meditate","挑战 BOSS":"Challenge BOSS","历练副本":"Dungeon","试炼塔":"Trial Tower","试炼塔 · 500 级起":"Trial Tower · Lv500+",
-"天关":"Heavenly Gate","心魔":"Inner Demon","虚空裂隙":"Void Rift","常态":"Normal","凶险":"Risky","绝境":"Desperate",
+"天关":"Heavenly Gate","心魔":"Inner Demon","虚空裂隙":"Void Rift","常态":"Normal","凶险":"Risky","绝境":"Desperate","轻松":"Easy","持平":"Even",
 "全部":"All","精简":"Compact","只看出货":"Loot only","返回战斗":"Back to Battle","知道了":"Got it",
 "继续挂机":"Keep farming","双倍领取":"Double claim","离线战报":"Offline Report","明细":"Details",
 "生命":"HP","气力":"MP","经验":"EXP","金币":"Gold","水晶":"Crystal","泡点":"Points","战力":"Power",
@@ -175,7 +175,7 @@ const I18N_DICT={
 "合成（3 合 1）":"Merge (3→1)","一键回收":"Recycle All","一键穿最优":"Best Gear","扩容 +10":"+10 Slots",
 "回收设置":"Recycle Rules","清理弱件":"Clean Weak","已锁 0":"Locked 0","稀有词条 0":"Rare 0","能变强 0":"Upgrades 0",
 "空部位 0":"Empty 0","史诗+ 0":"Epic+ 0","不限部位":"Any Slot",
-"签到":"Check-in","每日任务":"Daily Tasks","除魔任务":"Bounty","词缀图鉴":"Affix Dex","成就墙":"Achievements",
+"签到":"Check-in","每日任务":"Daily Tasks","日常全清宝箱":"Daily Clear Chest","开启宝箱":"Open Chest","除魔任务":"Bounty","词缀图鉴":"Affix Dex","成就墙":"Achievements",
 "共鸣进度":"Resonance","激活码":"Gift Code","双倍活动":"Double Event","商城":"Shop",
 "每日刷新 · 完成领保底券":"Resets daily · finish for a ticket","永久全属性加成":"Permanent all-stat bonus",
 "兑换":"Redeem","输入兑换":"Enter code","当前持有":"Owned",
@@ -2306,7 +2306,7 @@ notice("历练完成：经验 "+nf(gain)+"、强化石 ×3、水晶 ×5"+(up?"�
 checkAch();render();save();
 }
 function dailyAdd(k,v){
-if(S.daily.d!==dayKey()){S.daily={d:dayKey(),kills:0,gold:0,drops:0,boss:0,rec:0,merge:0};S.dailyClaim={};S.prestigeToday=0;}
+if(S.daily.d!==dayKey()){S.daily={d:dayKey(),kills:0,gold:0,drops:0,boss:0,rec:0,merge:0};S.dailyClaim={};S.dailyChest=0;S.prestigeToday=0;}
 S.daily[k]=(S.daily[k]||0)+v;
 }
 const DAILY=[
@@ -2316,6 +2316,7 @@ const DAILY=[
 {id:"m",n:"合成 3 次",goal:3,cur:()=>S.daily.merge,rew:"水晶 ×10、古物碎片 ×2"}
 ];
 function claimDaily(id){
+dailyAdd("kills",0);
 const t=DAILY.find(x=>x.id===id);if(!t)return;
 if(S.dailyClaim[id]){notice("今天已领过了。","warn");return;}
 if(t.cur()<t.goal){notice("还没完成："+t.cur()+" / "+t.goal,"warn");return;}
@@ -2325,6 +2326,16 @@ if(id==="b"){S.crystal+=20;S.mat.star+=2;}
 if(id==="r"){S.crystal+=10;S.mat.stone+=2;}
 if(id==="m"){S.crystal+=10;S.mat.relic+=2;}
 notice("领取每日任务："+t.rew,"gold");render();save();
+}
+function dailyAllDone(){return DAILY.every(t=>S.dailyClaim[t.id]);}
+function claimDailyChest(){
+if(S.dailyChest){notice("今天的日常宝箱已领过了。","warn");return;}
+if(!dailyAllDone()){notice("需先领完全部 4 项每日任务。","warn");return;}
+S.dailyChest=1;
+const g=Math.round(2000*(1+S.lv*2));
+S.crystal+=30;S.mat.enh+=3;S.mat.star+=2;S.mat.relic+=2;S.gold+=g;
+log("🎁 日常全清宝箱：水晶 ×30、强化石 ×3、升星石 ×2、古物碎片 ×2、金币 "+nf(g)+"。","boss");
+notice("日常全清宝箱已开启。","gold");render();save();
 }
 function claimSign(){
 if(S.sign.d===dayKey()){notice("今天已签到。","warn");return;}
@@ -2482,7 +2493,9 @@ $("#monBox").className="mon"+(cur.heaven?" heaven":(cur.boss?" boss":""));
 $("#monName").textContent=(cur.boss&&!cur.heaven?"[BOSS] ":"")+cur.name+(cur.poison>0?"（中毒）":"");
 const affTxt=monAffText(cur);
 const ed=expDecay(cur.lv);
-$("#monLv").textContent=(cur.tian&&S.tgEnd?("限时 "+Math.max(0,Math.ceil((S.tgEnd-Date.now())/1000))+"s · "):"")+(cur.heaven?("Lv"+cur.lv+" · 天道 · 破碎虚空"):("Lv"+cur.lv+" · "+(ELE[cur.ele]||"无")+"系"+(affTxt?" · 词缀 "+affTxt:"")+(cur.shield>0?" · 护盾 "+cur.shield:"")+(ed<1?" · 经验"+Math.round(ed*100)+"%":"") ));
+let gap="";
+if(!cur.boss&&!cur.elite){const d=cur.lv-S.lv;gap=d<=-5?"轻松":(d>=6?"凶险":"持平");}
+$("#monLv").textContent=(cur.tian&&S.tgEnd?("限时 "+Math.max(0,Math.ceil((S.tgEnd-Date.now())/1000))+"s · "):"")+(cur.heaven?("Lv"+cur.lv+" · 天道 · 破碎虚空"):("Lv"+cur.lv+" · "+(ELE[cur.ele]||"无")+"系"+(affTxt?" · 词缀 "+affTxt:"")+(cur.shield>0?" · 护盾 "+cur.shield:"")+(ed<1?" · 经验"+Math.round(ed*100)+"%":"")+(gap?" · "+gap:"") ));
 $("#monHp").style.width=Math.max(0,Math.min(100,cur.hp/cur.maxhp*100))+"%";
 $("#monHpTxt").textContent=Math.max(0,Math.round(cur.hp))+" / "+nf(cur.maxhp)+"（"+Math.max(0,Math.round(cur.hp/cur.maxhp*100))+"%）";
 }
@@ -3150,6 +3163,18 @@ if(!n)notice("现在没有可领的每日任务。","warn");else notice("已领�
 renderWelfare();
 };
 dl.appendChild(allBtn);
+(function(){
+const done=DAILY.filter(t=>S.dailyClaim[t.id]).length;
+const cd=D("card");
+const chestDone=!!S.dailyChest,all=dailyAllDone();
+cd.innerHTML='<div class="row"><span style="color:'+(chestDone?"#6b6870":"#e0b34a")+'">日常全清宝箱</span><span class="muted">'+done+' / '+DAILY.length+'</span></div>'+
+'<div class="sub">领完全部每日任务可再开：水晶 ×30、强化石 ×3、升星石 ×2、古物碎片 ×2、金币。</div>';
+const ca=D("acts");
+const cb=D("mini "+(chestDone?"off":(all?"y":"off")));
+cb.textContent=chestDone?"已领取":(all?"开启宝箱":"未完成");
+cb.onclick=claimDailyChest;
+ca.appendChild(cb);cd.appendChild(ca);dl.appendChild(cd);
+})();
 $("#dblState").textContent=dblText();
 const db=$("#dblBox");db.innerHTML="";
 const dc=D("card");
@@ -3217,7 +3242,7 @@ c.innerHTML='<div class="row"><span>第一页 · 单条词缀</span><span style=
 box.appendChild(c);
 }
 const KEY="fj_v1",CFG_KEY="fj_cfg_v1",UNLOCK_KEY="fj_unlock_v1";
-const VER="4.28";
+const VER="4.29";
 let saveMeta={last:0,size:0,copies:0,src:"浏览器本地存储"};
 const DEFAULT_CFG=JSON.parse(JSON.stringify(CONFIG));
 function isUnlocked(){try{return localStorage.getItem(UNLOCK_KEY)==="1";}catch(e){return false;}}
@@ -3314,6 +3339,7 @@ st.attr=Object.assign({},b.attr,st.attr||{});
 st.rec=Object.assign({},b.rec,st.rec||{});
 st.daily=Object.assign({},b.daily,st.daily||{});
 st.dailyClaim=st.dailyClaim||{};
+st.dailyChest=st.dailyChest||0;
 st.sign=Object.assign({d:"",days:0},st.sign||{});
 st.gift=st.gift||{};st.dex=st.dex||{};st.ach=st.ach||{};
 st.rate=Object.assign({g:0,e:0},st.rate||{});
@@ -3753,7 +3779,7 @@ if(!o||typeof o.lv!=="number")return;
 if(Number(o.offTs||0)<=Number(S.offTs||0))return;
 S=normalizeState(o);cur=null;S.auto=true;rehydrateUid();
 saveMeta.src="IndexedDB";saveMeta.last=Number(o.offTs)||0;
-if(S.daily.d!==dayKey()){S.daily={d:dayKey(),kills:0,gold:0,drops:0,boss:0,rec:0,merge:0};S.dailyClaim={};}
+if(S.daily.d!==dayKey()){S.daily={d:dayKey(),kills:0,gold:0,drops:0,boss:0,rec:0,merge:0};S.dailyClaim={};S.dailyChest=0;}
 if(S.hp<=0)S.hp=stats().hp;if(S.mp<=0)S.mp=maxMp();
 enforceBag();renderChips();spawn();render();restartTimers();
 log("从浏览器数据库恢复最新进度：Lv"+S.lv+"。","good");
@@ -3778,7 +3804,7 @@ log("养成页有泡点、经脉、转生、传世、生肖、图鉴、古物、
 }
 if(S.lv<=5&&Object.keys(S.eq||{}).length===0)starterKit();
 S.auto=true;
-if(S.daily.d!==dayKey()){S.daily={d:dayKey(),kills:0,gold:0,drops:0,boss:0,rec:0,merge:0};S.dailyClaim={};}
+if(S.daily.d!==dayKey()){S.daily={d:dayKey(),kills:0,gold:0,drops:0,boss:0,rec:0,merge:0};S.dailyClaim={};S.dailyChest=0;}
 if(S.hp<=0)S.hp=stats().hp;
 if(S.mp<=0)S.mp=maxMp();
 spawn();renderChips();applyUiMode(S.uiMode);enforceBag();render();restartTimers();startI18n();
