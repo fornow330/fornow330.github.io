@@ -223,12 +223,11 @@ const I18N_DICT={
 "开关":"On","开":"On","关":"Off","挑战天关":"Challenge Gate","挑战心魔":"Challenge Demon","进入秘境":"Enter Dungeon",
 "当前目标":"Current Goal","本图目标":"Map Goal","今日可做":"Today","下一阶段":"Next stage",
 "普通怪":"Normal","精英怪":"Elite","守关者":"Guardian","域主":"Lord",
-"多钩猫":"Hook Cat","鸡":"Chicken","鹿":"Deer","半兽人":"Orc","稻草人":"Scarecrow","钉耙猫":"Rake Cat","森林雪人":"Forest Yeti","毒蜘蛛":"Venom Spider","蝎子":"Scorpion","骷髅":"Skeleton","僵尸":"Zombie",
+"多钩猫":"Hook Cat","风":"Wind","火":"Fire","冰":"Ice","雷":"Thunder","光":"Light","鸡":"Chicken","鹿":"Deer","半兽人":"Orc","稻草人":"Scarecrow","钉耙猫":"Rake Cat","森林雪人":"Forest Yeti","毒蜘蛛":"Venom Spider","蝎子":"Scorpion","骷髅":"Skeleton","僵尸":"Zombie",
 "烈火剑法":"Flame Slash","魔法盾":"Magic Shield","施毒术":"Poison","回春":"Regen","荆棘":"Thorns","狂暴":"Frenzy","中毒":"Poisoned","分裂":"Split",
 "你饮下气力药。":"You drink an MP potion.","你饮下生命药。":"You drink an HP potion.",
 };
 const I18N_RULES=[
-[/^Lv(\d+) (\S+) (\S+)$/,"Lv$1 $2 $3"],
 [/^经验 ([\d.,]+)% Lv(\d+)$/,"EXP $1% · Lv$2"],
 [/^生命 ([\d,]+)\/([\d,]+)$/,"HP $1/$2"],
 [/^气力 ([\d,]+)\/([\d,]+)$/,"MP $1/$2"],
@@ -256,6 +255,8 @@ const I18N_RULES=[
 [/^(常态|凶险|绝境) · 强度×([\d.]+) \/ 掉落×([\d.]+)$/,"$1 · Power ×$2 / Drops ×$3"],
 [/^(烈火剑法|魔法盾|施毒术) (\d+)$/,"$1 Lv$2"],
 [/^(\d+)\/(\d+) · (.+) \(Lv(\d+)\+\)$/,"$1/$2 · $3 (Lv$4+)"],
+[/^Lv(\d+) (.+?) 战士$/,"Lv$1 $2 Warrior"],
+[/^Lv(\d+) · (风|火|冰|雷|光)系$/,"Lv$1 · $2 Element"],
 [/^剩下 (.+) 件（当前筛选）。/,"$1 items left (current filter)."],
 ];
 let LANG=(function(){try{const v=localStorage.getItem("fj_lang");if(v==="en"||v==="zh")return v;}catch(e){}try{return (navigator.language||"").toLowerCase().indexOf("zh")===0?"zh":"en";}catch(e){return "zh";}})();
@@ -274,7 +275,7 @@ try{
 if(root.nodeType===3){const v=i18nText(root.nodeValue);if(v!==root.nodeValue)root.nodeValue=v;return;}
 if(root.nodeType!==1)return;
 const tag=(root.tagName||"").toUpperCase();
-if(tag==="SCRIPT"||tag==="STYLE"||tag==="TEXTAREA")return;
+if(tag==="SCRIPT"||tag==="STYLE"||tag==="TEXTAREA"||tag==="INPUT")return;
 {
 const w=document.createTreeWalker(root,4,null,false);let n;
 while(n=w.nextNode()){const v=i18nText(n.nodeValue);if(v!==n.nodeValue)n.nodeValue=v;}
@@ -335,10 +336,12 @@ const box=$("#log");logFrame=0;
 if(!box)return;
 const pending=logPending;logPending=[];
 if(logMode!==logModeSig||!box.insertAdjacentHTML){renderLog();return;}
+let html="";
 for(const x of pending){
 if(!logPass(x.cls))continue;
-box.insertAdjacentHTML("afterbegin",logHtml(x));
+html+=logHtml(x);
 }
+if(html)box.insertAdjacentHTML("afterbegin",html);
 while(box.childElementCount>CONFIG.maxLog&&box.lastChild)box.removeChild(box.lastChild);
 }
 function log(t,cls){
@@ -394,6 +397,13 @@ let v=0;for(const s of SLOTS){const it=S.eq[s.k];if(it)v+=itStat(it,k);}
 return (k==="spd"||k==="luck"||k==="amp"||k==="red"||k==="luckRes"||k==="res")?r1(v):v;
 }
 function itemEle(){let v=0;for(const s of SLOTS){const it=S.eq[s.k];if(it)v+=it.ele||0;}return v;}
+function eqAgg(){
+const K=["atkMin","defMin","hp","spd","luck","fix","amp","red","res","ele"];
+const o={};K.forEach(k=>o[k]=0);let baseEle=0;
+for(const s of SLOTS){const it=S.eq[s.k];if(!it)continue;baseEle+=it.ele||0;for(const k of K)o[k]+=itStat(it,k);}
+["spd","luck","amp","red","res"].forEach(k=>o[k]=r1(o[k]));
+o.baseEle=baseEle;return o;
+}
 function meriBonus(){
 const o={atk:0,hp:0,def:0,spd:0,luckRes:0,fix:0,amp:0,red:0};
 for(const m of MERIDIANS){const lv=S.meri[m.k]||0;for(const k in m.per)o[k]+=m.per[k]*lv;}
@@ -680,23 +690,24 @@ const lv=S.lv,P=S.prestige,ap=S.attr;
 const db=dexBonus(),mb=meriBonus(),rb=relicBonus(),zb=zodiacBonus(),tb=titleBonus(),sb=supremeBonus();
 const soulM=1+(S.soulLv||0)*0.02, legM=1+(S.legacyLv||0)*0.015, trM=1+(S.transmog||0)*0.03;
 const pm=1+P*0.10, dkp=1+(affDexPct()+(S.nemBonus||0)+nemKillPct())/100;
-const aAdd=eqSum("atkMin")+mb.atk+rb.atk+zb.atk+tb.atk+db.atk+sb.atk;
-const dAdd=eqSum("defMin")+mb.def+rb.def+zb.def+sb.def;
-const hAdd=eqSum("hp")+mb.hp+rb.hp+zb.hp+tb.hp+db.hp+sb.hp;
+const E=eqAgg();
+const aAdd=E.atkMin+mb.atk+rb.atk+zb.atk+tb.atk+db.atk+sb.atk;
+const dAdd=E.defMin+mb.def+rb.def+zb.def+sb.def;
+const hAdd=E.hp+mb.hp+rb.hp+zb.hp+tb.hp+db.hp+sb.hp;
 return {
 atkMin:Math.round((4+lv*1.3+aAdd)*soulM*legM*trM*pm*(1+ap.atk*0.04)*dkp),
 atkMax:Math.round((6+lv*2.0+aAdd)*soulM*legM*trM*pm*(1+ap.atk*0.04)*dkp),
 defMin:Math.round((1+lv*0.5+dAdd)*(1+P*0.08+ap.def*0.03)*legM*dkp),
 defMax:Math.round((2+lv*0.8+dAdd)*(1+P*0.08+ap.def*0.03)*legM*dkp),
 hp:Math.round((110+lv*26+hAdd)*(1+P*0.08+ap.hp*0.05)*legM*dkp),
-spd:r1(eqSum("spd")+mb.spd+(S.transmog||0)*1.2),
-luck:Math.min(12,r1(eqSum("luck")+(S.transmog||0)*0.4)),
+spd:r1(E.spd+mb.spd+(S.transmog||0)*1.2),
+luck:Math.min(12,r1(E.luck+(S.transmog||0)*0.4)),
 luckRes:r1(mb.luckRes+rb.luckRes+(S.specialRing?3:0)),
-fix:Math.round(eqSum("fix")+mb.fix+rb.fix+zb.fix+db.fix+(S.specialRing?30:0)),
-amp:r1(eqSum("amp")+mb.amp+rb.amp+zb.amp),
-red:Math.min(70,r1(eqSum("red")+mb.red+zb.red)),
-ele:Math.round(itemEle()+eqSum("ele")),
-res:r1(eqSum("res"))
+fix:Math.round(E.fix+mb.fix+rb.fix+zb.fix+db.fix+(S.specialRing?30:0)),
+amp:r1(E.amp+mb.amp+rb.amp+zb.amp),
+red:Math.min(70,r1(E.red+mb.red+zb.red)),
+ele:Math.round(E.baseEle+E.ele),
+res:r1(E.res)
 };
 }
 function worldStats(){
@@ -1711,15 +1722,15 @@ if(S.mp<40&&S.mat.mp>0){S.mat.mp--;S.mp=Math.min(maxMp(),S.mp+45);log("你饮下
 }
 if(CONFIG.autoCast)trySkills();
 else{if(S.mp<maxMp()*0.35)S.mp+=Math.round(4+S.lv*0.8);if(S.mp>maxMp())S.mp=maxMp();}
-if(!cur||cur.hp<=0){renderFast();return;}
+if(!cur||cur.hp<=0){renderFast(st);return;}
 if(cur.poison>0){cur.poison--;const d=Math.max(1,Math.round(cur.poisonDps));cur.hp-=d;log("【"+cur.name+"】毒性发作，流失 "+d+"。","good");}
 if(cur.hp>0)playerAttack(false);
 if(st.spd>0&&Math.random()*100<Math.min(60,st.spd)&&cur.hp>0)playerAttack(false);
-if(cur.hp<=0){winMonster();renderFast();return;}
+if(cur.hp<=0){winMonster();renderFast(st);return;}
 monsterAttack();
 if(S.hp<=0)die();
 if(rateAcc.ms>=30000){S.rate={g:rateAcc.g/30,e:rateAcc.e/30};rateAcc={g:0,e:0,ms:0};}
-renderFast();
+renderFast(st);
 }
 function canAutoSell(it){
 if(!CONFIG.autoRecycle)return false;
@@ -2472,8 +2483,9 @@ box.appendChild(d);
 });
 }
 let runStat={t0:Date.now(),sp:0,exp:0,drop:0};
-function renderFast(){
-const st=stats();if(S.hp>st.hp)S.hp=st.hp;
+function renderFast(st){
+if(!st)st=stats();
+if(S.hp>st.hp)S.hp=st.hp;
 $("#hGoldTxt").textContent=nf(S.gold)+" 金币";
 $("#hPower").textContent=nf(calcPower(st));
 if(S.realm===2){$("#hCurLbl").textContent="灵晶";$("#hCrystal").textContent=nf(S.spirit||0);}
@@ -3180,7 +3192,7 @@ c.innerHTML='<div class="row"><span>第一页 · 单条词缀</span><span style=
 box.appendChild(c);
 }
 const KEY="fj_v1",CFG_KEY="fj_cfg_v1",UNLOCK_KEY="fj_unlock_v1";
-const VER="4.21";
+const VER="4.22";
 let saveMeta={last:0,size:0,copies:0,src:"浏览器本地存储"};
 const DEFAULT_CFG=JSON.parse(JSON.stringify(CONFIG));
 function isUnlocked(){try{return localStorage.getItem(UNLOCK_KEY)==="1";}catch(e){return false;}}
