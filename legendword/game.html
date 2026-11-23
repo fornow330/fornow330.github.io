@@ -151,6 +151,13 @@ skyWin:false,skyTries:0,deadEnd:0,xmWin:0,mapTier:{},tg:null,grudge:0,nemStory:{
 }
 let S=blank();
 let cur=null,uid=1,sitReady=0,tickTimer=null,saveTimer=null,rateAcc={g:0,e:0,ms:0};
+function rehydrateUid(){
+let m=0;
+const scan=o=>{if(o&&typeof o.id==="number"&&o.id>m)m=o.id;};
+if(Array.isArray(S.bag))S.bag.forEach(scan);
+if(S.eq)for(const k in S.eq)scan(S.eq[k]);
+if(m>=uid)uid=m+1;
+}
 let bagView={filter:"all",shown:24,slot:""},charView=0,autoMergeTick=0;
 const $=s=>document.querySelector(s);
 const I18N_DICT={
@@ -717,7 +724,7 @@ let atk=200+w*120+(d.atk||0)*140+(ab.atk||0);
 let def=100+w*25+(d.def||0)*90+(ab.def||0);
 let hpm=6000+w*760+(d.hpm||0)*2400+(ab.hp||0);
 const crit=Math.min(60,8+(d.crit||0)*2+(ab.crit||0));
-const awAtk=awakePct("atk")*12, awHp=awakePct("hp")*15;
+const awKeys=awakeKeys();const awAtk=awKeys.filter(x=>x==="atk").length*12, awHp=awKeys.filter(x=>x==="hp").length*15;
 const dkp=dkp0*(1+xmPct()/100);
 const dpA=dpMile("atk")*3,dpD=dpMile("def")*3,dpH=dpMile("hpm")*3,dpC=dpMile("crit")*10;
 atk=Math.round(atk*(1+(ab.atkp||0)/100+awAtk/100+rs.atkP/100+dpA/100)*dkp);
@@ -1776,11 +1783,12 @@ function autoEquip(it){
 if(!CONFIG.autoEquip)return;
 const old=S.eq[it.slot];
 if(!old||score(it)>score(old)){
-S.eq[it.slot]=it;S.bag=S.bag.filter(x=>x.id!==it.id);
+const i=S.bag.indexOf(it);if(i>=0)S.bag.splice(i,1);
+S.eq[it.slot]=it;
 if(old){S.bag.push(old);enforceBag();}
 log("你换上了 "+fullName(it)+"（"+it.slotName+"）。","good");
 }else if(canAutoSell(it)){
-S.gold+=Math.round(score(it)*1.2);S.bag=S.bag.filter(x=>x.id!==it.id);
+S.gold+=Math.round(score(it)*1.2);const i=S.bag.indexOf(it);if(i>=0)S.bag.splice(i,1);
 }
 }
 function wear(id){
@@ -1853,7 +1861,8 @@ if(q<5&&groups[k].length>=3){key=k;break;}
 if(!key){if(!silent)notice("没有 3 件同部位同品质的装备可合。","warn");return 0;}
 const list=groups[key].sort((a,b)=>score(a)-score(b)).slice(0,3);
 const slotKey=list[0].slot,lv=Math.max(...list.map(x=>x.lv)),tier=list[0].tier,q=list[0].q+1;
-S.bag=S.bag.filter(x=>!list.some(u=>u.id===x.id));
+const merged=new Set(list);
+S.bag=S.bag.filter(x=>!merged.has(x));
 const it=mkItem(slotKey,lv,tier,q);
 S.bag.push(it);dailyAdd("merge",1);enforceBag();
 notice("合成成功："+fullName(it)+"（"+it.slotName+"）","gold");
@@ -2998,7 +3007,8 @@ acts.appendChild(b);c.appendChild(acts);box.appendChild(c);
 sec("泡点","在线积累 · 可换经验金币");
 const p=Math.floor(S.point);
 const pc=D("card");
-pc.innerHTML='<div class="row"><span>当前泡点</span><span style="color:#f0d093">'+nf(p)+'</span></div><div class="sub">每分钟 +'+CONFIG.pointRate+' 点，离线按 60% 折算。1 泡点 ≈ 本级经验 0.3%。</div>';
+const offPct=Math.round((typeof CONFIG.offlineRate==="number"?CONFIG.offlineRate:0.5)*100);
+pc.innerHTML='<div class="row"><span>当前泡点</span><span style="color:#f0d093">'+nf(p)+'</span></div><div class="sub">每分钟 +'+CONFIG.pointRate+' 点，离线按 '+offPct+'% 折算。1 泡点 ≈ 本级经验 0.3%。</div>';
 const pa=D("acts");
 const p1=D("mini y");p1.textContent="换经验";p1.onclick=pointToExp;
 const p2=D("mini b");p2.textContent="换金币";p2.onclick=pointToGold;
@@ -3197,7 +3207,7 @@ c.innerHTML='<div class="row"><span>第一页 · 单条词缀</span><span style=
 box.appendChild(c);
 }
 const KEY="fj_v1",CFG_KEY="fj_cfg_v1",UNLOCK_KEY="fj_unlock_v1";
-const VER="4.23";
+const VER="4.24";
 let saveMeta={last:0,size:0,copies:0,src:"浏览器本地存储"};
 const DEFAULT_CFG=JSON.parse(JSON.stringify(CONFIG));
 function isUnlocked(){try{return localStorage.getItem(UNLOCK_KEY)==="1";}catch(e){return false;}}
@@ -3732,7 +3742,7 @@ const o=JSON.parse(raw);
 if(!o||typeof o.lv!=="number")return;
 // 数据库里只要比当前内存/本地存档更新就接管（本地写满时靠这条兜底）
 if(Number(o.offTs||0)<=Number(S.offTs||0))return;
-S=normalizeState(o);cur=null;S.auto=true;
+S=normalizeState(o);cur=null;S.auto=true;rehydrateUid();
 saveMeta.src="IndexedDB";saveMeta.last=Number(o.offTs)||0;
 if(S.daily.d!==dayKey()){S.daily={d:dayKey(),kills:0,gold:0,drops:0,boss:0,rec:0,merge:0};S.dailyClaim={};}
 if(S.hp<=0)S.hp=stats().hp;if(S.mp<=0)S.mp=maxMp();
@@ -3745,7 +3755,7 @@ save();
 }
 function boot(){
 loadCfg();bind();
-const ok=load();runStat={t0:Date.now(),sp:0,exp:0,drop:0};
+const ok=load();rehydrateUid();runStat={t0:Date.now(),sp:0,exp:0,drop:0};
 if(ok){
 log("读取存档：Lv"+S.lv+(S.prestige?" "+S.prestige+"转":"")+"，金币 "+nf(S.gold)+"，水晶 "+nf(S.crystal)+"。","gold");
 offlineSettle();
