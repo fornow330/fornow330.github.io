@@ -811,7 +811,7 @@ return itStat(it,"atkMin")*1.0+itStat(it,"atkMax")*1.2+itStat(it,"defMin")*1.0+i
 function isLocked(it){return it.q>=4||!!it.grow||!!it.lock;}
 function hasRare(it){return (it.affs||[]).some(a=>a.k==="luck"||a.k==="amp"||a.k==="red");}
 function SkillLevel(k){return Math.min(SKILLS[k].max,S.skills[k]||1);}
-function procChance(){return Math.min(45,8+SkillLevel("strike")*1.2+stats().luck*0.6);}
+function procChance(luck){if(luck===undefined)luck=stats().luck;return Math.min(45,8+SkillLevel("strike")*1.2+luck*0.6);}
 function strikeMul(){return 2.6+(SkillLevel("strike")-1)*0.08;}
 function shieldReduce(){return Math.min(0.85,0.55+SkillLevel("shield")*0.01);}
 function poisonPct(){return 0.18+SkillLevel("poison")*0.012;}
@@ -1412,14 +1412,14 @@ let best=0;
 for(let i=0;i<ms.length;i++)if(S.lv>=ms[i].lv[0])best=i;
 if(best!==S.map){S.map=best;cur=null;log("你走进了 "+ms[best].n+"。","sys");renderChips();spawn();}
 }
-function playerAttack(forceFire){
+function playerAttack(forceFire,st){
 if(!cur||cur.hp<=0)return;
-const st=stats();
+if(!st)st=stats();
 let dmg=rnd(st.atkMin,st.atkMax)+st.fix+st.ele;
 dmg*=1+st.amp/100;
 let tag="挥砍";
 if(S.realm===2&&Math.random()*100<(st.crit||8)){dmg*=1.9+(st.cdmg||0)/100;tag="暴击！";}
-if(Math.random()*100<procChance()){dmg*=strikeMul();tag=tag==="暴击！"?"暴击·致命一击！":"致命一击！";}
+if(Math.random()*100<procChance(st.luck)){dmg*=strikeMul();tag=tag==="暴击！"?"暴击·致命一击！":"致命一击！";}
 let fire=false;
 if((forceFire||CONFIG.autoCast)&&Date.now()>=(S.fireReady||0)&&S.mp>=SKILLS.fire.mp){
 S.mp-=SKILLS.fire.mp;S.fireReady=Date.now()+SKILLS.fire.cd;
@@ -1453,10 +1453,10 @@ log("【荆棘】反伤 "+rb+"。","warn");
 function towerRunHit(){
 if(S.towerRun&&S.towerRun.f===((cur&&cur.tower)||0))S.towerRun.hits++;
 }
-function monsterAttack(second){
+function monsterAttack(second,st){
 if(cur&&cur.tower)towerRunHit();
 if(!cur||cur.hp<=0)return;
-const st=stats();
+if(!st)st=stats();
 const af=cur.affs||[];
 let dmg=rnd(cur.atkMin,cur.atkMax)-rnd(st.defMin,st.defMax)*0.6;
 if(af.indexOf("rage")>=0&&cur.hp<cur.maxhp*0.35)dmg*=1.6;
@@ -1473,7 +1473,7 @@ if(af.indexOf("vamp")>=0){const h=Math.round(dmg*0.25);cur.hp=Math.min(cur.maxhp
 if(af.indexOf("regen")>=0&&cur.hp>0){const h=Math.round(cur.maxhp*0.012);cur.hp=Math.min(cur.maxhp,cur.hp+h);}
 if(!second&&af.indexOf("haste")>=0&&cur.hp>0&&Math.random()<0.25){
 log("【疾行】"+cur.name+" 追身连击！","warn");
-monsterAttack(true);
+monsterAttack(true,st);
 }
 }
 function castShield(q){
@@ -1482,24 +1482,26 @@ if(S.mp<SKILLS.shield.mp){if(!q)notice("气力不够开盾。","warn");return fa
 S.mp-=SKILLS.shield.mp;S.shieldEnd=Date.now()+SKILLS.shield.dur;S.shieldReady=Date.now()+SKILLS.shield.cd;
 bNotice("你凝起【魔法盾】，减伤 "+Math.round(shieldReduce()*100)+"%。","gold");return true;
 }
-function castPoison(q){
+function castPoison(q,st){
 if(!cur||cur.hp<=0){if(!q)notice("眼前没有怪物。","warn");return false;}
 if(Date.now()<(S.poisonReady||0)){if(!q)notice("施毒术冷却中。","warn");return false;}
 if(cur.poison>0){if(!q)notice("怪物身上还有残毒。","warn");return false;}
 if(S.mp<SKILLS.poison.mp){if(!q)notice("气力不够施毒。","warn");return false;}
+if(!st)st=stats();
 S.mp-=SKILLS.poison.mp;S.poisonReady=Date.now()+SKILLS.poison.cd;
-cur.poison=8;cur.poisonDps=Math.round((stats().atkMax+stats().fix)*poisonPct());
+cur.poison=8;cur.poisonDps=Math.round((st.atkMax+st.fix)*poisonPct());
 bNotice("你对【"+cur.name+"】施毒，8 回合持续掉血。","good");return true;
 }
-function castFire(q){
+function castFire(q,st){
 if(!cur||cur.hp<=0){if(!q)notice("眼前没有怪物。","warn");return false;}
 if(Date.now()<(S.fireReady||0)){if(!q)notice("烈火剑法冷却中。","warn");return false;}
 if(S.mp<SKILLS.fire.mp){if(!q)notice("气力不够放烈火。","warn");return false;}
-playerAttack(true);return true;
+playerAttack(true,st);return true;
 }
-function trySkills(){
-if(S.hp<stats().hp*0.85)castShield(true);
-if(cur&&cur.hp>0&&cur.poison<=0)castPoison(true);
+function trySkills(st){
+if(!st)st=stats();
+if(S.hp<st.hp*0.85)castShield(true);
+if(cur&&cur.hp>0&&cur.poison<=0)castPoison(true,st);
 if(S.mp<maxMp()*0.35)S.mp=Math.min(maxMp(),S.mp+Math.round(4+S.lv*0.8));
 }
 function winMonster(){
@@ -1688,7 +1690,7 @@ log("你倒在秘境第 "+f+" 层，链式挑战中断，冷却重新计算。",
 notice("秘境挑战失败：停在"+MIJING[f-1].n+"，120 秒后可再来。","warn");
 }
 log("你倒下了…… 在安全区醒来，损失金币 "+nf(lose)+"。","warn");
-S.hp=stats().hp;S.mp=maxMp();S.mode="normal";cur=null;spawn();
+S.hp=stats().hp;S.mp=maxMp();S.mode="normal";cur=null;spawn();save();
 }
 function tick(){
 tickWorldEvent();
@@ -1720,14 +1722,14 @@ if(S.hp<st.hp*0.5&&S.mat.hp>0){S.mat.hp--;
 if(S.towerRun&&S.mode==="tower")S.towerRun.pot++;S.hp=Math.min(st.hp,S.hp+st.hp*0.35);log("你灌下一瓶金创药。","good");}
 if(S.mp<40&&S.mat.mp>0){S.mat.mp--;S.mp=Math.min(maxMp(),S.mp+45);log("你饮下气力药。","good");}
 }
-if(CONFIG.autoCast)trySkills();
+if(CONFIG.autoCast)trySkills(st);
 else{if(S.mp<maxMp()*0.35)S.mp+=Math.round(4+S.lv*0.8);if(S.mp>maxMp())S.mp=maxMp();}
 if(!cur||cur.hp<=0){renderFast(st);return;}
 if(cur.poison>0){cur.poison--;const d=Math.max(1,Math.round(cur.poisonDps));cur.hp-=d;log("【"+cur.name+"】毒性发作，流失 "+d+"。","good");}
-if(cur.hp>0)playerAttack(false);
-if(st.spd>0&&Math.random()*100<Math.min(60,st.spd)&&cur.hp>0)playerAttack(false);
+if(cur.hp>0)playerAttack(false,st);
+if(st.spd>0&&Math.random()*100<Math.min(60,st.spd)&&cur.hp>0)playerAttack(false,st);
 if(cur.hp<=0){winMonster();renderFast(st);return;}
-monsterAttack();
+monsterAttack(undefined,st);
 if(S.hp<=0)die();
 if(rateAcc.ms>=30000){S.rate={g:rateAcc.g/30,e:rateAcc.e/30};rateAcc={g:0,e:0,ms:0};}
 renderFast(st);
@@ -2486,6 +2488,7 @@ let runStat={t0:Date.now(),sp:0,exp:0,drop:0};
 function renderFast(st){
 if(!st)st=stats();
 if(S.hp>st.hp)S.hp=st.hp;
+if(S.mp>maxMp())S.mp=maxMp();
 $("#hGoldTxt").textContent=nf(S.gold)+" 金币";
 $("#hPower").textContent=nf(calcPower(st));
 if(S.realm===2){$("#hCurLbl").textContent="灵晶";$("#hCrystal").textContent=nf(S.spirit||0);}
@@ -2609,9 +2612,11 @@ function renderBag(){
 const box=$("#bagList");box.innerHTML="";
 const chips=$("#bagChips");chips.innerHTML="";
 const slotRow=$("#bagSlotChips");slotRow.innerHTML="";
-S.bag.sort((a,b)=>score(b)-score(a));
+const sc=new Map();
+const sOf=x=>{let v=sc.get(x.id);if(v===undefined){v=score(x);sc.set(x.id,v);}return v;};
+S.bag.sort((a,b)=>sOf(b)-sOf(a));
 const cnt={all:S.bag.length,
-better:S.bag.filter(x=>score(x)>(S.eq[x.slot]?score(S.eq[x.slot]):0)).length,
+better:S.bag.filter(x=>sOf(x)>(S.eq[x.slot]?sOf(S.eq[x.slot]):0)).length,
 empty:S.bag.filter(x=>!S.eq[x.slot]).length,
 rare:S.bag.filter(x=>x.q>=3).length,
 lock:S.bag.filter(x=>x.lock).length,
@@ -2642,7 +2647,7 @@ slotRow.appendChild(lockAll);
 const list=S.bag.filter(bagPass);
 if(!list.length){box.innerHTML='<div class="empty">'+(S.bag.length?"这个筛选下没货，换个看看。":"背包空着，出去打点吧。")+'</div>';return;}
 for(const it of list.slice(0,bagView.shown)){
-const own=S.eq[it.slot],diff=Math.round(score(it)-(own?score(own):0));
+const own=S.eq[it.slot],diff=Math.round(sOf(it)-(own?sOf(own):0));
 const c=D("card");
 const tag=!own?'<b style="color:#9be0a2">该部位空着 · 可穿</b>':
 diff>0?'<b style="color:#6fce8a">比身上强 +'+diff+'</b>':
@@ -3192,7 +3197,7 @@ c.innerHTML='<div class="row"><span>第一页 · 单条词缀</span><span style=
 box.appendChild(c);
 }
 const KEY="fj_v1",CFG_KEY="fj_cfg_v1",UNLOCK_KEY="fj_unlock_v1";
-const VER="4.22";
+const VER="4.23";
 let saveMeta={last:0,size:0,copies:0,src:"浏览器本地存储"};
 const DEFAULT_CFG=JSON.parse(JSON.stringify(CONFIG));
 function isUnlocked(){try{return localStorage.getItem(UNLOCK_KEY)==="1";}catch(e){return false;}}
@@ -3383,7 +3388,7 @@ if(!m||!b)return;
 const line=(k,v)=>'<div><span class="muted">'+k+'</span><b>'+v+'</b></div>';
 b.innerHTML=line("离线时长",r.min+" 分钟")+line("泡点",nf(r.p))+line("金币",nf(r.g))+
 line("经验",nf(r.e))+(r.estKill?line("同期预计击杀（按最近 "+r.kpm+" 只/分 估算）",nf(r.estKill)+" 只"):line("预计击杀","在线时间太短，暂无节奏样本"))+(r.sp?line("灵晶（归来奖励）",nf(r.sp)):"")+(r.ticket?line("保底券","×1（离线 2 小时以上）"):"")+(r.up?"<div>等级 <b>+"+r.up+"（现 Lv"+r.lv+"）</b></div>":"")+
-'<div style="margin-top:8px;color:#8a877e">离线按在线收益的 60% 折算，最长结算 8 小时。</div>';
+'<div style="margin-top:8px;color:#8a877e">离线按在线收益的 '+Math.round((typeof CONFIG.offlineRate==="number"?CONFIG.offlineRate:0.5)*100)+'% 折算，最长结算 8 小时。</div>';
 m.style.display="flex";
 const dbl=$("#btnOffDouble");
 if(dbl){
