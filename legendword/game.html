@@ -638,7 +638,7 @@ const hp=Math.round(st.hp*1.15),atm=Math.round(st.atkMax*0.85);
 cur={name:"心魔·你的镜像",lv:S.lv,boss:true,mirror:true,ele:0,hp:hp,maxhp:hp,
 atkMin:Math.round(atm*0.9),atkMax:atm,def:Math.round(st.defMax*0.8),exp:0,gold:0,poison:0,poisonDps:0};
 S.mode="boss";S.hp=st.hp;S.mp=maxMp();
-try{const lg=$("#log");if(lg)lg.innerHTML="";}catch(e){}
+try{const lg=$("#log");if(lg)lg.innerHTML="";logBuf=[];logPending=[];}catch(e){}
 goPanel("0");
 log("【心魔劫】第 "+((S.xmWin||0)+1)+" 重镜像自你心底立起：生命 "+nf(hp)+"、一击 "+nf(atm)+"。","boss");
 notice("心魔现身：赢下它，永久 +4% 全属性（已 "+xmPct()+"%）。","warn");
@@ -1354,7 +1354,7 @@ cur={name:"天道",lv:1200,boss:true,heaven:true,ele:0,hp:hp,maxhp:hp,atkMin:atk
 def:Math.round(st.atkMax*0.7),exp:0,gold:0,poison:0,poisonDps:0};
 S.mode="boss";S.skyTries=(S.skyTries||0)+1;
 S.hp=st.hp;S.mp=maxMp();S.deadEnd=0;
-try{const lg=$("#log");if(lg)lg.innerHTML="";}catch(e){}
+try{const lg=$("#log");if(lg)lg.innerHTML="";logBuf=[];logPending=[];}catch(e){}
 goPanel("0");
 log("【破碎虚空】天幕裂开，天道本体降临：生命 "+nf(hp)+"，一击 "+nf(atk)+"（约你半条命）。","boss");
 notice("天道降临，这一战没有退路。","warn");
@@ -3212,7 +3212,7 @@ c.innerHTML='<div class="row"><span>第一页 · 单条词缀</span><span style=
 box.appendChild(c);
 }
 const KEY="fj_v1",CFG_KEY="fj_cfg_v1",UNLOCK_KEY="fj_unlock_v1";
-const VER="4.26";
+const VER="4.27";
 let saveMeta={last:0,size:0,copies:0,src:"浏览器本地存储"};
 const DEFAULT_CFG=JSON.parse(JSON.stringify(CONFIG));
 function isUnlocked(){try{return localStorage.getItem(UNLOCK_KEY)==="1";}catch(e){return false;}}
@@ -3564,7 +3564,7 @@ if(!txt){notice("先把存档粘进框里。","warn");return;}
 try{
 const o=await unpackSave(txt);if(!o||typeof o.lv!=="number")throw 0;
 S=normalizeState(o);rehydrateUid();
-cur=null;S.mode="normal";logBuf=[];renderLog();spawn();renderChips();applyUiMode(S.uiMode);render();save();
+cur=null;S.mode="normal";logBuf=[];logPending=[];rateAcc={g:0,e:0,ms:0};runStat={t0:Date.now(),sp:0,exp:0,drop:0};renderLog();spawn();renderChips();applyUiMode(S.uiMode);render();save();
 notice("存档导入成功：Lv"+S.lv+"、金币 "+nf(S.gold)+"。","gold");
 }catch(e){
 notice(e&&e.message==="need-gz"?"这段存档需要在线版/新版APK才能解压，请更新后再导入。":"这段存档读不出来，确认复制完整。","warn");
@@ -3577,7 +3577,7 @@ function resetAll(){
 if(!confirm("确定清空存档重来吗？调参解锁状态保留。"))return;
 try{localStorage.removeItem(KEY);}catch(e){}
 try{if(window.NativeStore&&NativeStore.clear)NativeStore.clear();}catch(e){}
-S=blank();cur=null;uid=1;sitReady=0;rateAcc={g:0,e:0,ms:0};
+S=blank();cur=null;uid=1;sitReady=0;rateAcc={g:0,e:0,ms:0};logBuf=[];logPending=[];runStat={t0:Date.now(),sp:0,exp:0,drop:0};
 starterKit();
 $("#log").innerHTML="";spawn();renderChips();render();
 log("新的旅程开始了，你套上一身新手白装走出了新手村。","gold");
@@ -3634,7 +3634,7 @@ const c2=D("card");
 c2.innerHTML='<div class="row"><span>保留稀有词条装备</span><span style="color:'+(S.rec.keepRare?"#9be0a2":"#8a877e")+'">'+(S.rec.keepRare?"开":"关")+'</span></div><div class="sub">传说及以上、专属灵器永久保护，不会被自动回收或清包；此处开关只管稀有词条。</div>';
 const acts=D("acts");
 const b=D("mini y");b.textContent=S.rec.keepRare?"关掉保护":"开启保护";
-b.onclick=()=>{S.rec.keepRare=!S.rec.keepRare;renderRec();};acts.appendChild(b);c2.appendChild(acts);box.appendChild(c2);
+b.onclick=()=>{S.rec.keepRare=!S.rec.keepRare;renderRec();save();};acts.appendChild(b);c2.appendChild(acts);box.appendChild(c2);
 }
 function applyUiMode(m){
 S.uiMode=m||"normal";
@@ -3654,7 +3654,6 @@ function renderSet(){
 const lz=$("#langZh"),le=$("#langEn");
 if(lz)lz.className="mini "+(LANG==="zh"?"y":"b");
 if(le)le.className="mini "+(LANG==="en"?"y":"b");
-$(" #footVer".trim())&&0;
 const fv=$("#footVer");if(fv)fv.innerHTML='单文件文字版 · 传奇文字 v'+VER+'<br>无广告、无权限 · 自动存档 + 本地数据库双备';
 const ss=$("#saveStat");if(ss)ss.innerHTML=saveStatHtml();
 applyUiMode(S.uiMode);
