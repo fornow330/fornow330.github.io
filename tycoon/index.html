@@ -7,8 +7,8 @@
 </head><body><div id="b"><div id="bx"><div>甜梦小铺 · 载入中</div><div id="bb"><i id="pg"></i></div><div id="st">准备中</div></div></div>
 <script>
 (function(){
-var F=["8b6768c8eb.js", "4266cbc564.js"],N=2,INLINE="";
-var BUILD="05556af5b63a1433",CK="tm_h5_"+BUILD;
+var F=["3df33eeb0b.js", "eb5801dd4f.js"],N=2,INLINE="";
+var BUILD="0967191d473215f0",CK="tm_h5_"+BUILD;
 function purge(){
   try{
     for(var i=localStorage.length-1;i>=0;i--){
@@ -28,6 +28,7 @@ function paint(p,t){
   if(PG) PG.style.width=Math.max(0,Math.min(100,p))+"%";
   if(ST) ST.textContent=t;
 }
+var failMsg="载入失败，请刷新重试";
 function fail(){
   /* 用查询参数强制取新 index，绕开旧缓存与已删除的分片；只自动重试一次 */
   if(!/[?&]retry=/.test(location.search)){
@@ -37,7 +38,7 @@ function fail(){
     location.replace(u.toString());
     return;
   }
-  paint(100,"载入失败，请刷新重试");
+  paint(100,failMsg);
 }
 function boot(){
 var cached=null;
@@ -54,7 +55,7 @@ function bump(){
 function unpack(){
   paint(94,"解密中");
   var t=INLINE || (window.__PC||[]).join("");
-  var K="IbS8I2Pg/snl"+"NsQyvN0zwh+52OUu"+"7q+2pupu+5cpERU="+"",V="bXTYkWR1BkbsOR43";
+  var K="zgWjofdNZjPi"+"c/o0GKNcVch1wCZl"+"1rO13OOyCneahP4="+"",V="ElwkRvXrjHrclKCo";
   var b=atob(t),c=new Uint8Array(b.length);
   for(var j=0;j<b.length;j++)c[j]=b.charCodeAt(j);
   var v=new Uint8Array(atob(V).split("").map(function(x){return x.charCodeAt(0);}));
@@ -107,11 +108,11 @@ function getChunk(src){
   });
 }
 if(INLINE){
-  unpack().catch(function(e){ if(console&&console.error) console.error(e); fail(); });
+  unpack().catch(function(e){ if(console&&console.error) console.error(e); if(e&&e.message==="unsupported") failMsg="当前浏览器不支持新版解压，请用最新版 Chrome / Safari 打开"; fail(); });
 }else{
   paint(4,"正在获取分片");
   setTimeout(function(){ if(!loaded) paint(18,"网络较慢，继续等待…"); },6000);
-  Promise.all(F.map(getChunk)).then(function(){ paint(90,"分片就绪"); return unpack(); }).catch(function(e){ if(console&&console.error) console.error(e); fail(); });
+  Promise.all(F.map(getChunk)).then(function(){ paint(90,"分片就绪"); return unpack(); }).catch(function(e){ if(console&&console.error) console.error(e); if(e&&e.message==="unsupported") failMsg="当前浏览器不支持新版解压，请用最新版 Chrome / Safari 打开"; fail(); });
 }
 }
 function checkVersion(){
