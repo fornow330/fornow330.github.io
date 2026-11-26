@@ -1,5 +1,5 @@
-v4.31
+v4.32
 2026-11-26
-223244 bytes
-md5 ae2bb6af4a28cc8e3b11c91b383afa7c
-改动：升级循环统一为 levUp/gainExp（日志由每级一条改整次一条）、renderBag 7 次全量遍历合为 1 次、smartTidy/bestEquip 复用评分缓存且一键换装 10 次扫包合为 1 次、去重 I18N_DICT 7 个重复 key、删 MAFF_D 死代码
+222642 bytes
+md5 84ef024d53a9d01b417d07487b7b7722
+改动：抽 barHTML 统一 3 处进度条模板、抽 scCache 统一 3 处评分缓存闭包、抽 worn() 合并 3 处穿装备检查、切页签统一走 goPanel（删 3 处手写同款代码）、bagPass 支持复用评分缓存

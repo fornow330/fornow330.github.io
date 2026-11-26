@@ -325,6 +325,11 @@ if(logMode===1)return !!cls;
 return true;
 }
 function D(cls){const d=document.createElement("div");if(cls!==undefined)d.className=cls;return d;}
+// 进度条模板：pct 百分比、h 高度、mt 外边距、rd 圆角（原先三处各自手写一份）
+function barHTML(pct,color,h,mt,rd){const px=h||4,r=rd||2,pc=Math.max(0,Math.min(100,pct));
+return '<div style="height:'+px+'px;background:#26232c;border-radius:'+r+'px;margin:'+(mt||"3px 0 0")+'"><div style="height:'+px+'px;width:'+pc+'%;background:'+color+';border-radius:'+r+'px"></div></div>';}
+// 评分缓存工厂：一次渲染内同一件装备只算一次 score（原先三处各写一个闭包）
+function scCache(){const m=new Map();return x=>{let v=m.get(x);if(v===undefined){v=score(x);m.set(x,v);}return v;};}
 function esc0(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 let logModeSig=-1,logFrame=0;
 function logHtml(x){return '<p'+(x.cls?' class="'+x.cls+'"':'')+'>'+esc0(x.t)+'</p>';}
@@ -1823,7 +1828,7 @@ notice("回收 "+n+" 件，得 "+nf(g)+" 金币"+(keep?"（保留 "+keep+" 件�
 }
 function smartTidy(){
 if(!S.bag.length){notice("背包是空的。","warn");return;}
-const sc=new Map(),sOf=x=>{let v=sc.get(x);if(v===undefined){v=score(x);sc.set(x,v);}return v;};
+const sOf=scCache();
 const bestBag={};
 for(const it of S.bag){const s=sOf(it);if(!bestBag[it.slot]||s>sOf(bestBag[it.slot]))bestBag[it.slot]=it;}
 let n=0,g=0,keep=0;const left=[];
@@ -1842,7 +1847,7 @@ render();save();
 function bestEquip(){
 let changed=0;
 // 一次遍历选出每个部位最强、且强过身上的那件（原先每个槽各扫一遍背包）
-const sc=new Map(),sOf=x=>{let v=sc.get(x);if(v===undefined){v=score(x);sc.set(x,v);}return v;};
+const sOf=scCache();
 const th={},pick={};
 for(const s of SLOTS)th[s.k]=S.eq[s.k]?sOf(S.eq[s.k]):-1;
 for(const it of S.bag){const s=sOf(it);if(s>th[it.slot]){th[it.slot]=s;pick[it.slot]=it;}}
@@ -1880,10 +1885,11 @@ notice("合成成功："+fullName(it)+"（"+it.slotName+"）","gold");
 autoEquip(it);if(!silent)render();save();
 return 1;
 }
+// 打造类操作共用的「取身上装备」检查（原先三处各写一遍）
+function worn(k){const it=S.eq[k];if(!it)notice("这个部位还没穿装备。","warn");return it||null;}
 function enhCost(it){return Math.round(180*Math.pow(it.plus+1,2.05)*(1+it.lv*0.07));}
 function enhance(k){
-const it=S.eq[k];
-if(!it){notice("这个部位还没穿装备。","warn");return;}
+const it=worn(k);if(!it)return;
 if(it.plus>=20){notice("已强化到 +20 上限。","warn");return;}
 const cost=enhCost(it);
 if(S.gold<cost){notice("强化需要 "+nf(cost)+" 金币。","warn");return;}
@@ -1896,8 +1902,7 @@ checkAch();render();save();
 }
 function rerollCost(it){return Math.round(400*(1+it.q)*(1+it.lv*0.04));}
 function reroll(k){
-const it=S.eq[k];
-if(!it){notice("这个部位还没穿装备。","warn");return;}
+const it=worn(k);if(!it)return;
 const cost=rerollCost(it);
 if(S.mat.stone<1||S.gold<cost){notice("洗炼需要洗炼石 ×1 + "+nf(cost)+" 金币。","warn");return;}
 S.mat.stone--;S.gold-=cost;
@@ -1914,8 +1919,7 @@ toast((a.lock?"锁定「":"解锁「")+affName(a.k)+"」，洗炼时"+(a.lock?"�
 }
 function starCost(it){return Math.round(60*Math.pow(it.star+1,1.8)*(1+it.lv*0.05));}
 function starUp(k){
-const it=S.eq[k];
-if(!it){notice("这个部位还没穿装备。","warn");return;}
+const it=worn(k);if(!it)return;
 if(it.star>=10){notice("已经十星。","warn");return;}
 const starNeed=1+it.star;
 if(S.mat.star<starNeed){notice("升星石不足（需要 ×"+starNeed+"，BOSS 掉、商城买）。","warn");return;}
@@ -2635,21 +2639,21 @@ function affBlock(it){
 if(!it.affs||!it.affs.length)return "";
 return '<div class="aff">'+it.affs.map(a=>'<span style="color:'+affColor(a.k)+'">'+affText(a)+'</span>').join(" ｜ ")+'</div>';
 }
-function bagPass(it){
+function bagPass(it,so){
+const sc=so||score,f=bagView.filter;
 if(bagView.slot&&it.slot!==bagView.slot)return false;
-if(bagView.filter==="lock")return !!it.lock;
-if(bagView.filter==="better")return score(it)>(S.eq[it.slot]?score(S.eq[it.slot]):0);
-if(bagView.filter==="empty")return !S.eq[it.slot];
-if(bagView.filter==="rare")return it.q>=3;
-if(bagView.filter==="keep")return hasRare(it);
+if(f==="lock")return !!it.lock;
+if(f==="better")return sc(it)>(S.eq[it.slot]?sc(S.eq[it.slot]):0);
+if(f==="empty")return !S.eq[it.slot];
+if(f==="rare")return it.q>=3;
+if(f==="keep")return hasRare(it);
 return true;
 }
 function renderBag(){
 const box=$("#bagList");box.innerHTML="";
 const chips=$("#bagChips");chips.innerHTML="";
 const slotRow=$("#bagSlotChips");slotRow.innerHTML="";
-const sc=new Map();
-const sOf=x=>{let v=sc.get(x);if(v===undefined){v=score(x);sc.set(x,v);}return v;};
+const sOf=scCache();
 S.bag.sort((a,b)=>sOf(b)-sOf(a));
 // 一次遍历同时算出筛选结果与 6 个分类计数（原先 7 次全量遍历）
 const cnt={all:S.bag.length,better:0,empty:0,rare:0,lock:0,keep:0};
@@ -2661,7 +2665,7 @@ if(sOf(x)>(own?sOf(own):0))cnt.better++;
 if(x.q>=3)cnt.rare++;
 if(x.lock)cnt.lock++;
 if(hasRare(x))cnt.keep++;
-if(bagPass(x))list.push(x);
+if(bagPass(x,sOf))list.push(x);
 }
 [["all","全部"],["better","能变强"],["empty","空部位"],["rare","史诗+"],["lock","已锁"],["keep","稀有词条"]].forEach(([k,n])=>{
 const d=D("chip"+(bagView.filter===k?" on":""));
@@ -2733,8 +2737,7 @@ const list=charGoalItems().slice(0,4);
 box.innerHTML='<div class="card"><div class="row"><span style="color:#e0b34a">下一步该做什么</span><span class="muted">实时进度</span></div>'+
 list.map(g=>'<div class="sub" style="margin-top:5px">'+g.n+'：<b style="color:#d9d6cf">'+g.v+'</b>'+
 (g.extra?' <span class="muted">· '+g.extra+'</span>':'')+
-'<div style="height:4px;background:#26232c;border-radius:2px;margin:3px 0 0"><div style="height:4px;width:'+
-Math.round(g.p*100)+'%;background:#c9a25a;border-radius:2px"></div></div></div>').join("")+'</div>';
+barHTML(Math.round(g.p*100),"#c9a25a")+'</div>').join("")+'</div>';
 }
 function renderChar(){
 renderCharGoals();
@@ -3156,7 +3159,7 @@ const got=S.dailyClaim[t.id],v=Math.min(t.goal,t.cur());
 const d=D("card");
 const pct=Math.min(100,Math.round(v/t.goal*100));
 d.innerHTML='<div class="row"><span style="color:'+(got?"#6b6870":"#d9d6cf")+'">'+t.n+'</span><span class="muted">'+v+' / '+t.goal+'</span></div>'+
-'<div style="height:4px;background:#26232c;border-radius:2px;margin:5px 0"><div style="height:4px;width:'+pct+'%;background:'+(got?"#4a4652":"#d8a63c")+';border-radius:2px"></div></div>'+
+barHTML(pct,got?"#4a4652":"#d8a63c",4,"5px 0")+
 '<div class="sub">奖励：'+t.rew+'</div>';
 const acts=D("acts");
 const btn=D("mini "+(got?"off":"y"));
@@ -3251,7 +3254,7 @@ c.innerHTML='<div class="row"><span>第一页 · 单条词缀</span><span style=
 box.appendChild(c);
 }
 const KEY="fj_v1",CFG_KEY="fj_cfg_v1",UNLOCK_KEY="fj_unlock_v1";
-const VER="4.31";
+const VER="4.32";
 let saveMeta={last:0,size:0,copies:0,src:"浏览器本地存储"};
 const DEFAULT_CFG=JSON.parse(JSON.stringify(CONFIG));
 function isUnlocked(){try{return localStorage.getItem(UNLOCK_KEY)==="1";}catch(e){return false;}}
@@ -3476,9 +3479,7 @@ function powerSplit(){
 const st=stats(),p=calcPower(st),sp=st._split;const line=(k,v)=>'<div class="row"><span>'+k+'</span><span>'+v+'</span></div>';
 if(!sp)return '<div class="sub">当前战力 '+nf(p)+'。进入大世界后会显示逐项拆解（基础/道行/灵器/共鸣/里程碑/倍率）。</div>'+line("攻击",nf(st.atkMax))+line("防御",nf(st.defMax))+line("生命",nf(st.hp));
 const bar=(name,v,color)=>{
-const pc=Math.max(0,Math.min(100,v));
-return '<div class="row" style="display:block"><span>'+name+' <b style="color:'+color+'">'+Math.round(v*10)/10+'%</b></span>'+
-'<div style="height:5px;background:#26232c;border-radius:3px;margin:3px 0 6px"><div style="height:5px;width:'+pc+'%;background:'+color+';border-radius:3px"></div></div></div>';
+return '<div class="row" style="display:block"><span>'+name+' <b style="color:'+color+'">'+Math.round(v*10)/10+'%</b></span>'+barHTML(v,color,5,"3px 0 6px",3)+'</div>';
 };
 const totAtk=(sp.baseAtk||0)+(sp.dpAtk||0)+(sp.artAtk||0);
 const rows=[
@@ -3754,19 +3755,10 @@ $("#btnSellAll").onclick=sellAll;
 $("#btnMerge").onclick=()=>{mergeItems(false);};
 const stb=$("#btnSmartTidy");if(stb)stb.onclick=smartTidy;
 $("#btnExpand").onclick=expandBag;
-$("#btnRecCfg").onclick=()=>{
-document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
-document.querySelectorAll(".tab")[5].classList.add("on");
-document.querySelectorAll(".pane").forEach(x=>x.classList.remove("on"));
-$("#pane5").classList.add("on");renderSet();toast("回收设置在下面","good");
-};
+$("#btnRecCfg").onclick=()=>{goPanel("5");toast("回收设置在下面","good");};
 document.querySelectorAll(".tab").forEach(t=>{
 t.onclick=()=>{
-document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));t.classList.add("on");
-const p=t.dataset.p;
-document.querySelectorAll(".pane").forEach(x=>x.classList.remove("on"));
-$("#pane"+p).classList.add("on");
-if(p==="1")renderBag();if(p==="2")renderChar();if(p==="3")renderGrow();if(p==="4")renderWelfare();if(p==="5")renderSet();
+goPanel(t.dataset.p);
 };
 });
 document.querySelectorAll("#charTabs .st").forEach((d,i)=>{d.onclick=()=>{charView=i;renderChar();};});
