@@ -184,8 +184,7 @@ const I18N_DICT={
 "存档":"Save","换手机、备份用":"For backup / new device","导出并复制":"Export & Copy","从框里导入":"Import",
 "重置存档":"Reset Save","写入是否正常":"Write status","实时算给你看":"Live calculation",
 "保存并应用":"Save & Apply","恢复默认":"Reset Defaults","改完点保存，立即生效":"Save to apply",
-"挂机时自动处理":"Handled while farming","永久全属性加成":"Permanent all-stat bonus",
-"保留稀有词条装备":"Keep rare-affix gear","关掉保护":"Protection off",
+"挂机时自动处理":"Handled while farming","保留稀有词条装备":"Keep rare-affix gear","关掉保护":"Protection off",
 "单文件文字版 · 传奇文字":"Single-file text RPG · Legend Text","无广告、无权限 · 自动存档 + 本地数据库双备":"No ads · auto-save + local DB backup",
 "自动存档位置：浏览器本地存储（App 内写入手机私有目录并留一份备份，关掉再开不会丢）。":"Auto-save: browser storage with a local backup copy.",
 "这串是你的存档，复制保存好；换手机粘进去点导入。":"This is your save. Copy it, paste on a new device and import.",
@@ -202,7 +201,6 @@ const I18N_DICT={
 "秘境":"Secret Realm","天关清杀":"Gate cleared","宿敌":"Nemesis","道行":"Dao Path",
 "灵器":"Relic","词条":"Affix","灵晶":"Spirit Crystal","强化石":"Enhance Stone","洗炼石":"Reforge Stone","升星石":"Star Stone",
 "古物碎片":"Relic Shard","生肖石":"Zodiac Stone","传世令":"Legacy Token","至尊石":"Supreme Stone",
-"泡点":"Points","经验":"EXP","金币":"Gold","生命":"HP","气力":"MP",
 "普通":"Common","精良":"Fine","稀有":"Rare","史诗":"Epic","传说":"Legendary","神器":"Mythic",
 "极品":"Quality","评分":"Score","掉落":"Drop","水晶 ×":"Crystal ×","灵晶 +":"Spirit Crystal +",
 "图鉴点亮":"Dex unlocked","图鉴凑满":"Dex complete","恭喜升级":"Level up","获得":"Obtained","换上":"Equip",
@@ -223,8 +221,7 @@ const I18N_DICT={
 "凡界/天空不显示灵晶收支，进入大世界后开启":"Spirit Crystal income is shown after entering the Open World.",
 "存档体积":"Save size","备份副本":"Backup copies","当前写入源":"Write source","最近一次写入":"Last write",
 "浏览器本地存储":"Browser storage","本次尚未写入":"Not saved yet","秒前":"s ago","体积偏大，已只保留主档；可用下方导出备份并适度清理背包。":"Save is large; only the main copy is kept. Export a backup and trim your bag.",
-"语言 / Language":"Language","默认跟随浏览器":"Follows browser","挂机时自动处理":"Handled while farming",
-"挂机自动回收勾选品质的装备（比身上的差就直接变金币）。":"Automatically recycles checked rarities (weaker gear turns into gold).","挂机时自动回收勾选品质的装备（比身上的差就直接变金币）。":"Automatically recycles checked rarities (weaker gear turns into gold).",
+"语言 / Language":"Language","默认跟随浏览器":"Follows browser","挂机自动回收勾选品质的装备（比身上的差就直接变金币）。":"Automatically recycles checked rarities (weaker gear turns into gold).","挂机时自动回收勾选品质的装备（比身上的差就直接变金币）。":"Automatically recycles checked rarities (weaker gear turns into gold).",
 "传说及以上、专属灵器永久保护，不会被自动回收或清包；此处开关只管稀有词条。":"Legendary+ gear and exclusive relics are always protected; this toggle only affects rare-affix gear.",
 "基于当前地图与天罚档位实时计算；经验速率取最近 30 秒实测，刚进游戏先挂一分钟再看。":"Calculated live from map and penalty tier; EXP rate uses the last 30 seconds.",
 "开关":"On","开":"On","关":"Off","挑战天关":"Challenge Gate","挑战心魔":"Challenge Demon","进入秘境":"Enter Dungeon",
@@ -389,6 +386,18 @@ if(lv<=170)return Math.floor(95*Math.pow(lv,1.72));
 return Math.floor(95*Math.pow(lv,1.72)*14);
 }
 function maxMp(){return Math.round(60+S.lv*8+S.prestige*10);}
+// 统一升级结算：把当前经验里够升的全部升掉，返回升了几级（气血气力随之回满）
+function levUp(){
+let n=0;
+while(S.exp>=need(S.lv)&&S.lv<levelCap()){
+S.exp-=need(S.lv);S.lv++;n++;S.hp=stats().hp;S.mp=maxMp();
+}
+return n;
+}
+function gainExp(x){
+if(!(x>0))return 0;
+S.exp+=x;return levUp();
+}
 function itBase(it,k){
 const base=(it.b&&it.b[k])||0;
 if(!base)return 0;
@@ -1358,8 +1367,6 @@ notice("天道降临，这一战没有退路。","warn");
 renderMon();render();save();
 }
 const MAFF={vamp:"吸血",thorn:"荆棘",split:"分裂",rage:"狂怒",shield:"护盾",haste:"疾行",regen:"回春"};
-const MAFF_D={vamp:"造成伤害的 25% 转为自身体力",thorn:"受到的 30% 伤害反弹给你",split:"被击杀后裂出半血分身再战",
-rage:"血量低于 35% 时攻击 +60%",shield:"开局自带 25% 生命的护盾",haste:"25% 概率连击一次",regen:"每回合回复 1.2% 生命"};
 function rollMonAffs(n){
 const keys=Object.keys(MAFF),out=[];
 const cnt=Math.max(0,Math.min(n,keys.length));
@@ -1671,10 +1678,8 @@ addItem(mkItem(slotKey,Math.max(1,cur.lv-Math.floor(rnd(0,5))),dMap.tier,q));
 if(!boss&&S.realm!==2&&Math.random()<0.06*CONFIG.crystalRate){const g=1+Math.floor(rnd(0,3));S.crystal+=g;S.crystalKills=(S.crystalKills||0)+1;log("怪物身上摸出水晶 ×"+g+"。","gold");}
 if(Math.random()<0.10)S.mat.hp+=1;
 if(Math.random()<0.06)S.mat.mp+=1;
-while(S.exp>=need(S.lv)&&S.lv<levelCap()){
-S.exp-=need(S.lv);S.lv++;S.hp=stats().hp;S.mp=maxMp();
-log("★ 恭喜升级！你达到了 Lv"+S.lv+"。","gold");
-}
+const nUp=levUp();
+if(nUp)log("★ 恭喜升级！"+(nUp>1?"连升 "+nUp+" 级，":"")+"你达到了 Lv"+S.lv+"。","gold");
 if(S.realm===2)syncGrowArt();
 checkAch();
 cur=null;spawn();
@@ -1818,15 +1823,16 @@ notice("回收 "+n+" 件，得 "+nf(g)+" 金币"+(keep?"（保留 "+keep+" 件�
 }
 function smartTidy(){
 if(!S.bag.length){notice("背包是空的。","warn");return;}
+const sc=new Map(),sOf=x=>{let v=sc.get(x);if(v===undefined){v=score(x);sc.set(x,v);}return v;};
 const bestBag={};
-S.bag.forEach(it=>{if(!bestBag[it.slot]||score(it)>score(bestBag[it.slot]))bestBag[it.slot]=it;});
+for(const it of S.bag){const s=sOf(it);if(!bestBag[it.slot]||s>sOf(bestBag[it.slot]))bestBag[it.slot]=it;}
 let n=0,g=0,keep=0;const left=[];
 for(const it of S.bag){
 if(isLocked(it)||(S.rec.keepRare&&hasRare(it))){left.push(it);keep++;continue;}
-const own=S.eq[it.slot],ownSc=own?score(own):-1;
+const own=S.eq[it.slot],ownSc=own?sOf(own):-1;
 // 每个部位只留“比身上强且是同部位最强”的那件
-if(it===bestBag[it.slot]&&score(it)>ownSc){left.push(it);keep++;continue;}
-g+=Math.round(score(it)*1.25);n++;
+if(it===bestBag[it.slot]&&sOf(it)>ownSc){left.push(it);keep++;continue;}
+g+=Math.round(sOf(it)*1.25);n++;
 }
 if(!n){notice("没有可清的了：剩下的都是锁定件/稀有词条/能穿的强件。","warn");return;}
 S.bag=left;S.gold+=g;dailyAdd("rec",n);
@@ -1835,10 +1841,15 @@ render();save();
 }
 function bestEquip(){
 let changed=0;
+// 一次遍历选出每个部位最强、且强过身上的那件（原先每个槽各扫一遍背包）
+const sc=new Map(),sOf=x=>{let v=sc.get(x);if(v===undefined){v=score(x);sc.set(x,v);}return v;};
+const th={},pick={};
+for(const s of SLOTS)th[s.k]=S.eq[s.k]?sOf(S.eq[s.k]):-1;
+for(const it of S.bag){const s=sOf(it);if(s>th[it.slot]){th[it.slot]=s;pick[it.slot]=it;}}
 for(const s of SLOTS){
-let bi=-1,best=S.eq[s.k]?score(S.eq[s.k]):-1;
-S.bag.forEach((it,i)=>{if(it.slot!==s.k)return;const sc=score(it);if(sc>best){bi=i;best=sc;}});
-if(bi>=0){const it=S.bag[bi],old=S.eq[s.k];S.eq[s.k]=it;S.bag.splice(bi,1);if(old)S.bag.push(old);changed++;}
+const it=pick[s.k];if(!it)continue;
+const i=S.bag.indexOf(it);if(i<0)continue;
+const old=S.eq[s.k];S.eq[s.k]=it;S.bag.splice(i,1);if(old)S.bag.push(old);changed++;
 }
 notice(changed?"一键换装完成，换上 "+changed+" 件更好的。":"背包里没有更好的装备。",changed?"good":"warn");
 render();save();
@@ -2267,9 +2278,7 @@ const p=Math.floor(S.point);
 if(p<10){notice("泡点不足 10 点。","warn");return;}
 S.point-=p;
 const gain=Math.round(p*need(S.lv)*0.003*(isDouble()?2:1));
-S.exp+=gain;
-let up=0;
-while(S.exp>=need(S.lv)&&S.lv<levelCap()){S.exp-=need(S.lv);S.lv++;up++;S.hp=stats().hp;S.mp=maxMp();}
+const up=gainExp(gain);
 notice("用 "+p+" 泡点换 "+nf(gain)+" 经验"+(up?"，升了 "+up+" 级":""),"gold");
 checkAch();render();save();
 }
@@ -2290,13 +2299,12 @@ spawnMijing(1,false);return;
 if(Date.now()<(S.trialReady||0)){notice("历练冷却中，还要 "+Math.ceil((S.trialReady-Date.now())/1000)+" 秒。","warn");return;}
 S.trialReady=Date.now()+120000;
 const gain=Math.round(need(S.lv)*0.25*(isDouble()?2:1));
-S.exp+=gain;S.mat.enh+=3;S.mat.stone+=1;S.crystal+=5;
+S.mat.enh+=3;S.mat.stone+=1;S.crystal+=5;
 if(Math.random()<0.5)S.mat.star+=1;
 if(Math.random()<0.35)S.mat.relic+=2;
 if(Math.random()<0.25)S.mat.zodiac+=1;
 if(Math.random()<0.2)S.mat.legacy+=1;
-let up=0;
-while(S.exp>=need(S.lv)&&S.lv<levelCap()){S.exp-=need(S.lv);S.lv++;up++;S.hp=stats().hp;S.mp=maxMp();}
+const up=gainExp(gain);
 if(S.realm===2)syncGrowArt();
 notice("历练完成：经验 "+nf(gain)+"、强化石 ×3、水晶 ×5"+(up?"，升 "+up+" 级":""),"gold");
 checkAch();render();save();
@@ -2641,14 +2649,20 @@ const box=$("#bagList");box.innerHTML="";
 const chips=$("#bagChips");chips.innerHTML="";
 const slotRow=$("#bagSlotChips");slotRow.innerHTML="";
 const sc=new Map();
-const sOf=x=>{let v=sc.get(x.id);if(v===undefined){v=score(x);sc.set(x.id,v);}return v;};
+const sOf=x=>{let v=sc.get(x);if(v===undefined){v=score(x);sc.set(x,v);}return v;};
 S.bag.sort((a,b)=>sOf(b)-sOf(a));
-const cnt={all:S.bag.length,
-better:S.bag.filter(x=>sOf(x)>(S.eq[x.slot]?sOf(S.eq[x.slot]):0)).length,
-empty:S.bag.filter(x=>!S.eq[x.slot]).length,
-rare:S.bag.filter(x=>x.q>=3).length,
-lock:S.bag.filter(x=>x.lock).length,
-keep:S.bag.filter(hasRare).length};
+// 一次遍历同时算出筛选结果与 6 个分类计数（原先 7 次全量遍历）
+const cnt={all:S.bag.length,better:0,empty:0,rare:0,lock:0,keep:0};
+const list=[];
+for(const x of S.bag){
+const own=S.eq[x.slot];
+if(!own)cnt.empty++;
+if(sOf(x)>(own?sOf(own):0))cnt.better++;
+if(x.q>=3)cnt.rare++;
+if(x.lock)cnt.lock++;
+if(hasRare(x))cnt.keep++;
+if(bagPass(x))list.push(x);
+}
 [["all","全部"],["better","能变强"],["empty","空部位"],["rare","史诗+"],["lock","已锁"],["keep","稀有词条"]].forEach(([k,n])=>{
 const d=D("chip"+(bagView.filter===k?" on":""));
 d.textContent=n+" "+cnt[k];
@@ -2672,7 +2686,6 @@ notice("已锁定 "+n0+" 件（当前筛选）。","gold");renderBag();save();
 };
 slotRow.appendChild(lockAll);
 }
-const list=S.bag.filter(bagPass);
 if(!list.length){box.innerHTML='<div class="empty">'+(S.bag.length?"这个筛选下没货，换个看看。":"背包空着，出去打点吧。")+'</div>';return;}
 for(const it of list.slice(0,bagView.shown)){
 const own=S.eq[it.slot],diff=Math.round(sOf(it)-(own?sOf(own):0));
@@ -2683,7 +2696,7 @@ diff===0?'<b class="muted">与身上持平</b>':'<b style="color:#7d7a83">比身
 c.innerHTML='<div class="row"><span style="color:'+QUAL[it.q].c+'">'+fullName(it)+'</span><span class="muted">'+it.slotName+'</span></div><div class="sub">'+itemSub(it)+'</div>'+affBlock(it)+'<div class="sub">'+tag+'</div>';
 const acts=D("acts");
 const b1=D("mini "+(diff>0||!own?"b":""));b1.textContent=diff>0||!own?"穿戴":"仍要穿";b1.onclick=()=>wear(it.id);
-const b2=D("mini g");b2.textContent="回收 +"+nf(Math.round(score(it)*1.25));b2.onclick=()=>sell(it.id);
+const b2=D("mini g");b2.textContent="回收 +"+nf(Math.round(sOf(it)*1.25));b2.onclick=()=>sell(it.id);
 const b3=D("mini "+(it.lock?"y":"b"));b3.textContent=it.lock?"已锁":"锁定";
 b3.onclick=()=>{it.lock=!it.lock;log(it.lock?"已锁定「"+fullName(it)+"」，自动回收跳过它。":"已解锁「"+fullName(it)+"」。",it.lock?"gold":"sys");renderBag();save();};
 acts.appendChild(b1);acts.appendChild(b2);acts.appendChild(b3);c.appendChild(acts);box.appendChild(c);
@@ -3238,7 +3251,7 @@ c.innerHTML='<div class="row"><span>第一页 · 单条词缀</span><span style=
 box.appendChild(c);
 }
 const KEY="fj_v1",CFG_KEY="fj_cfg_v1",UNLOCK_KEY="fj_unlock_v1";
-const VER="4.30";
+const VER="4.31";
 let saveMeta={last:0,size:0,copies:0,src:"浏览器本地存储"};
 const DEFAULT_CFG=JSON.parse(JSON.stringify(CONFIG));
 function isUnlocked(){try{return localStorage.getItem(UNLOCK_KEY)==="1";}catch(e){return false;}}
@@ -3412,8 +3425,8 @@ const p=Math.floor(CONFIG.pointRate*gap*0.6);
 const g=Math.round((S.rate.g||0)*gap*offR);
 const e=Math.round((S.rate.e||0)*gap*offR);
 const lv0=S.lv;
-S.point+=p;S.gold+=g;S.exp+=e;
-while(S.exp>=need(S.lv)&&S.lv<levelCap()){S.exp-=need(S.lv);S.lv++;S.hp=stats().hp;S.mp=maxMp();}
+S.point+=p;S.gold+=g;
+gainExp(e);
 const r={min:Math.round(gap/60),p,g,e,up:S.lv-lv0,lv:S.lv};
 if(S.realm===2&&gap>=120){
 const sp=Math.round(Math.min(8*3600,gap)/60*(5+Math.floor(Math.max(0,S.lv-200)/8))*CONFIG.spiritRate*offR);
@@ -3441,8 +3454,8 @@ const cost=Math.max(50,Math.round((r.p||0)*0.5));
 dbl.textContent="双倍领取（泡点 -"+nf(cost)+"）";
 dbl.onclick=()=>{
 if((S.point||0)<cost){notice("泡点不够，双倍需要 "+nf(cost)+"。","warn");return;}
-S.point-=cost;S.gold+=r.g;S.exp+=r.e;S.point+=r.p;
-while(S.exp>=need(S.lv)&&S.lv<levelCap()){S.exp-=need(S.lv);S.lv++;S.hp=stats().hp;S.mp=maxMp();}
+S.point-=cost;S.gold+=r.g;S.point+=r.p;
+gainExp(r.e);
 if(r.sp)S.spirit=(S.spirit||0)+r.sp;
 r.doubled=true;m.style.display="none";S.offReport=null;save();render();
 notice("双倍离线奖励已入账：金币 +"+nf(r.g)+"、经验 +"+nf(r.e)+"、泡点 +"+nf(r.p)+"。","gold");
